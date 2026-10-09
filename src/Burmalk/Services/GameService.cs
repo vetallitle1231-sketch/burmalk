@@ -18,9 +18,9 @@ namespace Burmalk.Services
         private static int _fpsSampling;
         private static GameCurrent _current;
         private static readonly HashSet<string> Known=new HashSet<string>(StringComparer.OrdinalIgnoreCase) {"cs2","dota2","valorant-win64-shipping","fortniteclient-win64-shipping","r5apex","rocketleague","gta5","eldenring","cyberpunk2077","witcher3","overwatch","minecraft","starfield","baldursgate3","bg3","bg3_dx11"};
-        private static readonly double[] Sums=new double[5];
-        private static readonly int[] Counts=new int[5];
-        public static GameCurrent Current { get { lock(Gate) { return _current==null?null: new GameCurrent {Active=_current.Active,GameName=_current.GameName,Executable=_current.Executable,Pid=_current.Pid,StartedUtc=_current.StartedUtc,DurationSeconds=_current.DurationSeconds,FpsAvailable=_current.FpsAvailable,FpsCurrent=_current.FpsCurrent,FpsAvg=_current.FpsAvg,FpsMin=_current.FpsMin,FpsMax=_current.FpsMax,CpuPercent=_current.CpuPercent,GpuPercent=_current.GpuPercent,GpuTempC=_current.GpuTempC,GpuVramUsedGb=_current.GpuVramUsedGb,RamUsedGb=_current.RamUsedGb}; } } }
+        private static readonly double[] Sums=new double[6];
+        private static readonly int[] Counts=new int[6];
+        public static GameCurrent Current { get { lock(Gate) { return _current==null?null: new GameCurrent {Active=_current.Active,GameName=_current.GameName,Executable=_current.Executable,Pid=_current.Pid,StartedUtc=_current.StartedUtc,DurationSeconds=_current.DurationSeconds,FpsAvailable=_current.FpsAvailable,FpsCurrent=_current.FpsCurrent,FpsAvg=_current.FpsAvg,FpsMin=_current.FpsMin,FpsMax=_current.FpsMax,CpuPercent=_current.CpuPercent,CpuTempC=_current.CpuTempC,GpuPercent=_current.GpuPercent,GpuTempC=_current.GpuTempC,GpuVramUsedGb=_current.GpuVramUsedGb,RamUsedGb=_current.RamUsedGb}; } } }
         public static void Start() { lock(Gate){if(_running)return;_running=true;_timer=new Timer(Scan,null,0,1000);} }
         public static void Stop() { lock(Gate){_running=false;_timer?.Dispose();_timer=null;FinalizeSession();} }
         public static void EndSession() { lock(Gate){FinalizeSession();} }
@@ -52,9 +52,9 @@ namespace Burmalk.Services
                     if (_current.Pid == pid) _ = SampleFpsAsync(pid);
                     var s=App.Monitor.LastSample;
                     _current.DurationSeconds=(DateTime.UtcNow-_current.StartedUtc).TotalSeconds;
-                    _current.CpuPercent=s.CpuPercent;_current.GpuPercent=s.GpuPercent;_current.GpuTempC=s.GpuTempC;_current.GpuVramUsedGb=s.GpuVramUsedGb;_current.RamUsedGb=s.RamUsedGb;
-                    double[] values={s.CpuPercent,s.GpuPercent,s.GpuTempC,s.GpuVramUsedGb,s.RamUsedGb};
-                    for(int i=0;i<5;i++)if(double.IsFinite(values[i])){Sums[i]+=values[i];Counts[i]++;}
+                    _current.CpuPercent=s.CpuPercent;_current.CpuTempC=s.CpuTempC;_current.GpuPercent=s.GpuPercent;_current.GpuTempC=s.GpuTempC;_current.GpuVramUsedGb=s.GpuVramUsedGb;_current.RamUsedGb=s.RamUsedGb;
+                    double[] values={s.CpuPercent,s.GpuPercent,s.GpuTempC,s.GpuVramUsedGb,s.RamUsedGb,s.CpuTempC};
+                    for(int i=0;i<6;i++)if(double.IsFinite(values[i])){Sums[i]+=values[i];Counts[i]++;}
                 }
             }catch(Exception ex){ErrorLog.Write("GameService: "+ex.Message);}finally{Interlocked.Exchange(ref _scanning,0);}
         }
@@ -83,9 +83,8 @@ namespace Burmalk.Services
         private static void FinalizeSession()
         {
             if(_current==null)return;
-            App.Store.AddSession(new GameSession {GameName=_current.GameName,StartedUtc=_current.StartedUtc,DurationSeconds=(DateTime.UtcNow-_current.StartedUtc).TotalSeconds,FpsAvailable=_current.FpsAvailable,FpsAvg=_current.FpsAvailable?_current.FpsAvg:double.NaN,FpsMin=_current.FpsAvailable?_current.FpsMin:double.NaN,FpsMax=_current.FpsAvailable?_current.FpsMax:double.NaN,Fps1Low=double.NaN,Fps01Low=double.NaN,CpuAvgPercent=Average(0),GpuAvgPercent=Average(1),GpuTempAvg=Average(2),GpuVramAvgGb=Average(3),RamAvgGb=Average(4)});
+            App.Store.AddSession(new GameSession {GameName=_current.GameName,StartedUtc=_current.StartedUtc,DurationSeconds=(DateTime.UtcNow-_current.StartedUtc).TotalSeconds,FpsAvailable=_current.FpsAvailable,FpsAvg=_current.FpsAvailable?_current.FpsAvg:double.NaN,FpsMin=_current.FpsAvailable?_current.FpsMin:double.NaN,FpsMax=_current.FpsAvailable?_current.FpsMax:double.NaN,Fps1Low=double.NaN,Fps01Low=double.NaN,CpuAvgPercent=Average(0),CpuTempAvg=Average(5),GpuAvgPercent=Average(1),GpuTempAvg=Average(2),GpuVramAvgGb=Average(3),RamAvgGb=Average(4)});
             _current=null;
         }
     }
 }
-

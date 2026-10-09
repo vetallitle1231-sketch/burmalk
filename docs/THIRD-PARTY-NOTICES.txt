@@ -1,4 +1,4 @@
-Burmalk 1.1.0 includes .NET 8 Windows Desktop Runtime and NuGet components.
+Burmalk 1.1.1 includes .NET 8 Windows Desktop Runtime and NuGet components.
 
 LibreHardwareMonitorLib 0.9.6: MPL-2.0, Copyright LibreHardwareMonitor contributors.
 Unmodified source: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/v0.9.6

@@ -15,6 +15,7 @@ namespace Burmalk.Services
     public static class Verification
     {
         public static string DirectoryPath;
+        public static bool RequireCpuTemperature;
         public static readonly List<string> Pages=new List<string>();
         public static readonly List<string> Failures=new List<string>();
         public static void Capture(Window window,string page)
@@ -48,11 +49,12 @@ namespace Burmalk.Services
             Check(double.IsNaN(values[0])&&values[1]==20&&values[2]==30,"History must preserve missing intervals and ring order");
             var store=new DataStore(Path.Combine(DirectoryPath,"persistence-test"));store.Load();store.Settings.UpdateIntervalMs=1700;
             store.SaveProfile(new GameProfile{GameName="VerificationProfile",OverlayEnabled=false,OverlayPosition="BottomRight"});
-            store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN});store.Save();
+            store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN,CpuTempAvg=App.Monitor.LastSample.CpuTempC});store.Save();
             var read=new DataStore(store.RootDir);read.Load();
             Check(read.Settings.UpdateIntervalMs==1700,"Settings round trip");
             Check(read.GetProfile("verificationprofile")?.OverlayEnabled==false,"Profile round trip / case-insensitive lookup");
             Check(read.Sessions.Count>0&&double.IsNaN(read.Sessions.Last().GpuTempAvg),"Unavailable session metric round trip");
+            Check(read.Sessions.Last().CpuTempAvg.Equals(App.Monitor.LastSample.CpuTempC),"CPU temperature session round trip");
             Check(double.IsNaN(GpuSampler.ParseDouble("N/A"))&&GpuSampler.ParseDouble("42.5")==42.5,"GPU parsing");
             Check(App.Monitor.Hub.CpuPercent.Count>2,"Live sampling advances history");
             var processes=ProcessSnapshot.Capture();
@@ -62,6 +64,7 @@ namespace Burmalk.Services
             Check(File.Exists(Path.Combine(App.Store.RootDir,"settings.json")),"Settings save button creates a real file");
             Check(Burmalk.Views.BenchmarkView.LastReport!=null,"Benchmark completed");
             Check(double.IsFinite(App.Monitor.LastSample.CpuGhz)&&App.Monitor.LastSample.CpuGhz>0,"Real CPU frequency available");
+            if(RequireCpuTemperature)Check(double.IsFinite(App.Monitor.LastSample.CpuTempC)&&App.Monitor.LastSample.CpuTempC>0&&App.Monitor.LastSample.CpuTempC<150,"Real CPU temperature available");
             var original=App.Store.Settings.Theme;
             foreach(var theme in Appearance.Themes.Where(t=>t!="Custom photo"))
             {
@@ -81,7 +84,7 @@ namespace Burmalk.Services
             if(OverlayManager.CurrentWindow?.Content is Border overlaySurface && overlaySurface.Background is SolidColorBrush overlayBrush)
                 Check(!App.Store.Settings.OverlayTransparent||overlayBrush.Color.A==0,"Overlay has transparent surface");
             var options=new JsonSerializerOptions{IncludeFields=true,WriteIndented=true,NumberHandling=JsonNumberHandling.AllowNamedFloatingPointLiterals};
-            File.WriteAllText(Path.Combine(DirectoryPath,"verification.json"),JsonSerializer.Serialize(new{Pages,Failures,Sample=App.Monitor.LastSample,CpuSensorStatus=App.Monitor.CpuSensors.Status,FrequencySource=App.Monitor.CpuSensors.FrequencySource,Benchmark=Burmalk.Views.BenchmarkView.LastReport,Hardware=App.Monitor.Hardware.Snapshot,AI=App.Ai.Status},options));
+            File.WriteAllText(Path.Combine(DirectoryPath,"verification.json"),JsonSerializer.Serialize(new{Pages,Failures,Sample=App.Monitor.LastSample,CpuSensorStatus=App.Monitor.CpuSensors.Status,CpuSensors=App.Monitor.CpuSensors.DescribeSensors(),FrequencySource=App.Monitor.CpuSensors.FrequencySource,Benchmark=Burmalk.Views.BenchmarkView.LastReport,Hardware=App.Monitor.Hardware.Snapshot,AI=App.Ai.Status},options));
         }
     }
 }

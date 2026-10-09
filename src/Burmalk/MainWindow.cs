@@ -25,6 +25,7 @@ namespace Burmalk
         private readonly Grid _content = new Grid();
         private readonly Image _wallpaper = new Image {Stretch=Stretch.UniformToFill,IsHitTestVisible=false};
         private readonly Border _shade = new Border {Background=Brushes.Black,IsHitTestVisible=false};
+        private readonly TextBlock _cpuTemperature=ViewUi.Text("CPU temperature: initializing…");
         private readonly UserControl[] _views;
         private DispatcherTimer _selftest;
         private int _selftestStep;
@@ -90,6 +91,7 @@ namespace Burmalk
             branding.Children.Add(new Image { Source=new BitmapImage(new Uri("pack://application:,,,/Assets/Burmalk.png")),Width=34,Height=34,Margin=new Thickness(0,0,10,0) });
             header.Margin=new Thickness(0);
             branding.Children.Add(header);
+            _cpuTemperature.Margin=new Thickness(22,6,0,0);branding.Children.Add(_cpuTemperature);
             DockPanel.SetDock(branding, Dock.Top);
 
             var host = new Grid();
@@ -149,6 +151,8 @@ namespace Burmalk
 
         private void OnSample(Sample s)
         {
+            _cpuTemperature.Text="CPU  "+Fmt.C(s.CpuTempC)+"  ·  "+MetricView.Number(s.CpuGhz*1000,"MHz");
+            _cpuTemperature.ToolTip=App.Monitor.CpuSensors.Status;
             int i = _nav.SelectedIndex;
             if (i < 0 || i >= _views.Length) return;
             try { (_views[i] as IRefreshable)?.Refresh(); }

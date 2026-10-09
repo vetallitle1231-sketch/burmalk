@@ -8,13 +8,15 @@ namespace Burmalk.Services
     public sealed class CpuSensors : IDisposable
     {
         private Computer _computer;
+        private string _driverStatus="";
         public string Status {get;private set;}="Initializing CPU sensors…";
         public string FrequencySource {get;private set;}="";
+        public object DescribeSensors()=>_computer?.Hardware.Select(h=>new {Name=h.Name,Type=h.HardwareType.ToString(),Sensors=h.Sensors.Select(s=>new{Name=s.Name,Type=s.SensorType.ToString(),Value=s.Value}).ToArray()}).ToArray();
         [StructLayout(LayoutKind.Sequential)] private struct PowerInfo {public uint Number,MaxMhz,CurrentMhz,MhzLimit,MaxIdleState,CurrentIdleState;}
         [DllImport("powrprof.dll")] private static extern uint CallNtPowerInformation(int level,IntPtr input,uint inputSize,[Out] PowerInfo[] output,uint size);
         public void Open()
         {
-            try {_computer=new Computer {IsCpuEnabled=true};_computer.Open();}
+            try {_driverStatus=CpuSensorAccess.EnsureDriver();_computer=new Computer {IsCpuEnabled=true};_computer.Open();}
             catch(Exception ex) {Status="CPU sensor access: "+ex.Message;ErrorLog.Write(Status);}
         }
         public (double Temperature,double Ghz) Sample()
@@ -40,7 +42,7 @@ namespace Burmalk.Services
             {
                 try {var data=new PowerInfo[Environment.ProcessorCount];if(CallNtPowerInformation(11,IntPtr.Zero,0,data,(uint)(Marshal.SizeOf<PowerInfo>()*data.Length))==0){var clocks=data.Where(x=>x.CurrentMhz>0).ToArray();if(clocks.Length>0){mhz=clocks.Average(x=>(double)x.CurrentMhz);FrequencySource="Windows power API · reported clock (may omit boost)";}}}catch{}
             }
-            Status=double.IsFinite(temperature)?"CPU temperature: LibreHardwareMonitor":"CPU temperature unavailable · install PawnIO and restart Burmalk as administrator.";
+            Status=double.IsFinite(temperature)?"CPU temperature: LibreHardwareMonitor":"CPU temperature unavailable · "+_driverStatus;
             return (temperature,mhz/1000.0);
         }
         public void Dispose(){try{_computer?.Close();}catch{}}

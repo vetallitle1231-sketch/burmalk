@@ -36,7 +36,7 @@ namespace Burmalk.Views
                 Game=s.GameName,Date=s.StartedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),Duration=Fmt.Dur(s.DurationSeconds),
                 AverageFPS=s.FpsAvailable?s.FpsAvg.ToString("0.0"):"Unavailable",MinimumFPS=s.FpsAvailable?s.FpsMin.ToString("0.0"):"Unavailable",MaximumFPS=s.FpsAvailable?s.FpsMax.ToString("0.0"):"Unavailable",
                 Low1=s.FpsAvailable?MetricView.Number(s.Fps1Low,"FPS"):"Unavailable",Low01=s.FpsAvailable?MetricView.Number(s.Fps01Low,"FPS"):"Unavailable",
-                CPU=Fmt.Pct(s.CpuAvgPercent),GPU=Fmt.Pct(s.GpuAvgPercent),Temperature=Fmt.C(s.GpuTempAvg),VRAM=Fmt.Gb(s.GpuVramAvgGb),RAM=Fmt.Gb(s.RamAvgGb)
+                CPU=Fmt.Pct(s.CpuAvgPercent),CPUtemperature=Fmt.C(s.CpuTempAvg),GPU=Fmt.Pct(s.GpuAvgPercent),GPUtemperature=Fmt.C(s.GpuTempAvg),VRAM=Fmt.Gb(s.GpuVramAvgGb),RAM=Fmt.Gb(s.RamAvgGb)
             }).ToList();
             _message.Text=App.Store.SessionSnapshot().Count==0?"No recorded sessions yet.":"Select a column header to sort sessions.";
         }

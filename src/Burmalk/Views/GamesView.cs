@@ -14,6 +14,7 @@ namespace Burmalk.Views
         private readonly TextBlock _gpu = Big("—");
         private readonly TextBlock _vram = Big("—");
         private readonly TextBlock _cpu = Big("—");
+        private readonly TextBlock _ctemp = Big("—");
         private readonly TextBlock _ram = Big("—");
 
         public GamesView()
@@ -53,6 +54,7 @@ namespace Burmalk.Views
             Cell(grid, "GPU TEMP", _gtemp, 0, 1);
             Cell(grid, "VRAM", _vram, 1, 1);
             Cell(grid, "RAM", _ram, 0, 2);
+            Cell(grid, "CPU TEMP", _ctemp, 1, 2);
 
             root.Children.Add(Panel("SYSTEM STATS WHILE GAMING", grid));
 
@@ -109,7 +111,7 @@ namespace Burmalk.Views
                 _duration.Text = "Unavailable";
                 _fps.Text = "Unavailable";
                 var sample=App.Monitor.LastSample;
-                _cpu.Text=Fmt.Pct(sample.CpuPercent);_gpu.Text=Fmt.Pct(sample.GpuPercent);_gtemp.Text=Fmt.C(sample.GpuTempC);_vram.Text=Fmt.Gb(sample.GpuVramUsedGb);_ram.Text=Fmt.Gb(sample.RamUsedGb);
+                _cpu.Text=Fmt.Pct(sample.CpuPercent);_ctemp.Text=Fmt.C(sample.CpuTempC);_gpu.Text=Fmt.Pct(sample.GpuPercent);_gtemp.Text=Fmt.C(sample.GpuTempC);_vram.Text=Fmt.Gb(sample.GpuVramUsedGb);_ram.Text=Fmt.Gb(sample.RamUsedGb);
                 return;
             }
 
@@ -122,6 +124,7 @@ namespace Burmalk.Views
             _gtemp.Text = Fmt.C(cur.GpuTempC);
             _vram.Text = Fmt.Gb(cur.GpuVramUsedGb);
             _cpu.Text = Fmt.Pct(cur.CpuPercent);
+            _ctemp.Text = Fmt.C(cur.CpuTempC);
             _ram.Text = Fmt.Gb(cur.RamUsedGb);
         }
     }

@@ -13,7 +13,7 @@
     <Description>Burmalk PC monitoring dashboard</Description>
     <ApplicationIcon>Assets/Burmalk.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
@@ -30,6 +30,3 @@
   </ItemGroup>
 
 </Project>
-
-
-

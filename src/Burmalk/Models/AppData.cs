@@ -12,6 +12,7 @@ namespace Burmalk.Models
 
         // Monitoring
         public int UpdateIntervalMs = 1000;
+        public bool CpuSensorsEnabled;
         public int GraphHistorySeconds = 300;
 
         // FPS overlay

@@ -8,7 +8,7 @@ namespace Burmalk.Views
     public class SettingsView : UserControl
     {
         private readonly TextBox _interval,_history,_endpoint,_refresh,_opacity,_hotkey,_size;
-        private readonly CheckBox _overlay,_detect,_cpu,_gpu,_ram,_vram;
+        private readonly CheckBox _overlay,_detect,_cpu,_gpu,_ram,_vram,_sensors;
         private readonly ComboBox _position;
         private readonly ComboBox _theme;
         private readonly CheckBox _compact, _transparent;
@@ -24,8 +24,9 @@ namespace Burmalk.Views
             _photo.Text=string.IsNullOrEmpty(s.BackgroundImage)?"No custom photo selected":System.IO.Path.GetFileName(s.BackgroundImage);
             root.Children.Add(ViewUi.Panel("Appearance",ViewUi.Text("Color theme / wallpaper"),_theme,_compact,ViewUi.Text("Wallpaper dimming"),_dim,ViewUi.Button("Choose photo from PC",ChoosePhoto),_photo,ViewUi.Button("Apply appearance",ApplyAppearance)));
             _interval=Input(s.UpdateIntervalMs.ToString()); _history=Input(s.GraphHistorySeconds.ToString());
+            _sensors=Check("Enable CPU sensors on startup · Windows permission required",s.CpuSensorsEnabled);
             root.Children.Add(ViewUi.Panel("Monitoring",ViewUi.Text("Update interval (300–10000 ms)"),_interval,ViewUi.Text("Graph history (10–3600 seconds)"),_history));
-            root.Children.Add(ViewUi.Panel("CPU sensors / FPS permissions",ViewUi.Text("For CPU temperature install the signed PawnIO driver and restart Burmalk as administrator. FPS capture also requires administrator rights. Normal monitoring and appearance work without elevation."),ViewUi.Button("CPU sensor setup instructions",()=>MessageBox.Show("1. Close Burmalk.\n2. Open the Support folder beside Burmalk.exe and install PawnIO_setup.exe (signed edition).\n3. Right-click the Burmalk shortcut and choose Run as administrator.\n\nSupport folder: "+System.IO.Path.Combine(AppContext.BaseDirectory,"Support"),"Burmalk · CPU sensors"))));
+            root.Children.Add(ViewUi.Panel("CPU sensors / FPS permissions",ViewUi.Text("Click Enable CPU temperature and approve the Windows permission prompt. Burmalk installs or repairs the signed sensor driver when needed. After enabling, future launches request permission automatically. FPS capture also needs this permission."),_sensors,ViewUi.Button("Enable CPU temperature · Windows permission",CpuSensorAccess.Enable)));
             _endpoint=Input(s.AiEndpoint);
             root.Children.Add(ViewUi.Panel("Local AI · Ollama",ViewUi.Text("Server address (HTTP or HTTPS)"),_endpoint,ViewUi.Text("Monitoring uses version and loaded-model endpoints. No inference runs automatically.")));
             _overlay=Check("Enable overlay",s.OverlayEnabled); _detect=Check("Detect recognized games and configured profiles",s.GameDetectionEnabled);
@@ -61,6 +62,7 @@ namespace Burmalk.Views
                 !System.Text.RegularExpressions.Regex.IsMatch(_hotkey.Text.Trim(),@"^F([1-9]|1[0-2])$"))
             { _status.Text="Check the ranges, endpoint and F1–F12 hotkey."; return; }
             var s=App.Store.Settings; s.UpdateIntervalMs=interval; s.GraphHistorySeconds=history;s.AiEndpoint=uri.ToString().TrimEnd('/');
+            s.CpuSensorsEnabled=_sensors.IsChecked==true;
             s.OverlayEnabled=_overlay.IsChecked==true;s.GameDetectionEnabled=_detect.IsChecked==true;s.OverlayRefreshMs=refresh;s.OverlayOpacity=opacity;s.OverlayFontSize=size;
             s.OverlayPosition=_position.SelectedItem as string??"TopLeft";s.OverlayHotkey=_hotkey.Text.Trim();
             s.OverlayShowCpu=_cpu.IsChecked==true;s.OverlayShowGpu=_gpu.IsChecked==true;s.OverlayShowRam=_ram.IsChecked==true;s.OverlayShowVram=_vram.IsChecked==true;

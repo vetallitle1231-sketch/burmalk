@@ -6,22 +6,24 @@ using Burmalk.Services;
 
 namespace Burmalk.Views
 {
-    public class BenchmarkView : UserControl
+    public class BenchmarkView : UserControl,IRefreshable
     {
         private readonly TextBlock _cpu=ViewUi.Text("Not run","BigValue"),_memory=ViewUi.Text("Not run","BigValue"),_write=ViewUi.Text("Not run","BigValue"),_read=ViewUi.Text("Not run","BigValue"),_details=ViewUi.Text(""),_gpu=ViewUi.Text("");
         private readonly Button _start;
+        private readonly TextBlock _cpuSensors=ViewUi.Text("");
         public static BenchmarkReport LastReport {get;private set;}
         public bool IsRunning {get;private set;}
         public BenchmarkView()
         {
             _start=ViewUi.Button("Run short CPU / memory / disk benchmark",Run);
             var cards=new System.Windows.Controls.Primitives.UniformGrid {Columns=2};
-            cards.Children.Add(ViewUi.Panel("CPU · single-thread integer operations / sec",_cpu));
+            cards.Children.Add(ViewUi.Panel("CPU · single-thread integer operations / sec",_cpu,_cpuSensors));
             cards.Children.Add(ViewUi.Panel("Memory · copy throughput",_memory));
             cards.Children.Add(ViewUi.Panel("Disk · write-through, 32 MiB",_write));
             cards.Children.Add(ViewUi.Panel("Disk · buffered read-back, 32 MiB",_read));
             var root=new StackPanel();root.Children.Add(ViewUi.Panel("Manual benchmark",ViewUi.Text("Runs only when requested. CPU: 1.5 seconds, memory: 0.5 seconds, disk: temporary 32 MiB file deleted after validation. Buffered read can include Windows cache and is not raw disk speed. Background activity affects results."),_start,_details));root.Children.Add(cards);root.Children.Add(ViewUi.Panel("GPU · live readings, no synthetic GPU benchmark",_gpu));Content=root;
         }
+        public void Refresh(){var s=App.Monitor.LastSample;_cpuSensors.Text="CPU temperature: "+Fmt.C(s.CpuTempC)+" · Clock: "+MetricView.Number(s.CpuGhz*1000,"MHz");}
         private async void Run()
         {
             IsRunning=true;_start.IsEnabled=false;_details.Text="Running…";

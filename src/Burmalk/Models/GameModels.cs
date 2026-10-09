@@ -28,6 +28,7 @@ namespace Burmalk.Models
         public double GpuTempC;
         public double GpuVramUsedGb;
         public double CpuPercent;
+        public double CpuTempC = double.NaN;
         public double RamUsedGb;
     }
 
@@ -45,6 +46,7 @@ namespace Burmalk.Models
         public double Fps01Low;
         public double GpuAvgPercent;
         public double CpuAvgPercent;
+        public double CpuTempAvg = double.NaN;
         public double GpuTempAvg;
         public double GpuVramAvgGb;
         public double RamAvgGb;

@@ -17,6 +17,11 @@ namespace Burmalk
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            int previousIndex=Array.IndexOf(e.Args??Array.Empty<string>(),"--wait-for-process");
+            if(previousIndex>=0&&previousIndex+1<e.Args.Length&&int.TryParse(e.Args[previousIndex+1],out int previousPid))
+            {
+                try{using(var previous=System.Diagnostics.Process.GetProcessById(previousPid))if(!previous.WaitForExit(10000)){Shutdown();return;}}catch(ArgumentException){}
+            }
 
             // Global safety net: never let a sampler crash the app.
             DispatcherUnhandledException += (s, ex) =>
@@ -43,6 +48,7 @@ namespace Burmalk
 
             // Self-test arguments (used for automated verification, optional)
             var args = e.Args ?? new string[0];
+            Verification.RequireCpuTemperature=args.Contains("--require-cpu-temperature");
             if (args.Contains("--selftest")) SelfTestMode = "navigate";
             if (args.Contains("--selftest-exit")) SelfTestMode = "navigate-exit";
             int verifyArg=Array.IndexOf(args,"--verify-dir");
@@ -54,6 +60,12 @@ namespace Burmalk
 
             Store = new Services.DataStore(Verification.DirectoryPath==null?null:System.IO.Path.Combine(Verification.DirectoryPath,"app-data"));
             Store.Load();
+            if(Verification.DirectoryPath==null&&SelfTestMode==""&&Store.Settings.CpuSensorsEnabled&&!CpuSensorAccess.IsAdministrator)
+            {
+                try{if(CpuSensorAccess.RestartElevated())return;}
+                catch(System.ComponentModel.Win32Exception ex) when(ex.NativeErrorCode==1223){}
+                catch(Exception ex){ErrorLog.Write("CPU sensor permission: "+ex.Message);}
+            }
             Appearance.Apply(Store.Settings);
             if(Verification.DirectoryPath!=null) { Store.Settings.GameDetectionEnabled=false;Store.Settings.OverlayEnabled=false; }
             Ai = new OllamaMonitor();

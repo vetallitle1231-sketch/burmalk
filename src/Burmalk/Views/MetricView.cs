@@ -44,6 +44,7 @@ namespace Burmalk.Views
                 Add("Utilization", h.CpuPercent, s=>Fmt.Pct(s.CpuPercent), "%", 100, ViewUi.Blue);
                 Add("Temperature", h.CpuTempC, s=>Fmt.C(s.CpuTempC), "°C", 100, ViewUi.Gold);
                 Add("Current frequency · MHz", h.CpuGhz, s=>Number(s.CpuGhz*1000,"MHz"), "GHz", -1, ViewUi.Purple);
+                _root.Children.Add(ViewUi.Button("Enable CPU temperature · Windows permission",Burmalk.Services.CpuSensorAccess.Enable));
             }
             else if (kind == "GPU")
             {
