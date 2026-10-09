@@ -1,0 +1,12 @@
+.build/
+.vs/
+**/bin/
+**/obj/
+dist/*.exe
+*.user
+*.suo
+*.log
+.env
+settings.json
+sessions.json
+profiles.json

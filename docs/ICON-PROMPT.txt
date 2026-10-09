@@ -1,0 +1,5 @@
+Generated with the built-in imagegen tool, 2026-10-09.
+Final generation prompt:
+Use case: logo-brand. Create one polished Windows desktop application icon for an original PC monitoring app named Burmalk. Centered bold geometric letter B seamlessly merged with a clean pulse/performance graph, strong recognizable silhouette at 32 pixels. A rounded square deep navy tile, luminous cyan and electric blue B with a restrained violet accent, subtly beveled premium surface, crisp edges, high contrast, minimal detail. Straight-on flat app icon, no perspective, no surrounding objects, no mockup, no extra lettering or words, no watermark. Tile fills about 88 percent of the square canvas with transparent margins outside the rounded square. One icon only.
+Transparent background requested.
+PNG retained as the master asset. ICO contains 16, 24, 32, 48, 64, 128 and 256px sizes.

@@ -1,0 +1,27 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.0.0
+MinimumVisualStudioVersion = 10.0.0.1
+Project("{FAAEFE42-D95C-412E-86A3-EEDC017F5118}") = "Burmalk", "src\Burmalk\Burmalk.csproj", "{9F3C1B2A-4A5D-4E6B-8C7D-0A1B2C3D4E5F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9F3C1B2A-4A5D-4E6B-8C7D-0A1B2C3D4E5F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F3C1B2A-4A5D-4E6B-8C7D-0A1B2C3D4E5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F3C1B2A-4A5D-4E6B-8C7D-0A1B2C3D4E5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F3C1B2A-4A5D-4E6B-8C7D-0A1B2C3D4E5F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F3C1B2A-4A5D-4E6B-8C7D-0A1B2C3D4E5F}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A0B1C2D3-4E5F-4A6B-8C7D-2D3E4F5A6B7C}
+	EndGlobalSection
+EndGlobal
+

@@ -1,0 +1,36 @@
+name: Build Burmalk
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Prepare signed build dependencies
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory .build/tools -Force | Out-Null
+          Invoke-WebRequest https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe -OutFile .build/tools/inno-setup.exe
+          $signature=Get-AuthenticodeSignature .build/tools/inno-setup.exe
+          if($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Pyrsys'){throw 'Inno Setup signature mismatch'}
+          $tool=Start-Process .build/tools/inno-setup.exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER /NOICONS', ('/DIR="'+$PWD+'\.build\tools\inno"') -WindowStyle Hidden -Wait -PassThru
+          if($tool.ExitCode -ne 0){throw 'Inno Setup installation failed'}
+          Invoke-WebRequest https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe -OutFile .build/tools/PawnIO_setup.exe
+          $signature=Get-AuthenticodeSignature .build/tools/PawnIO_setup.exe
+          if($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'namazso'){throw 'PawnIO signature mismatch'}
+      - name: Build self-contained app and installer
+        shell: pwsh
+        run: ./Build.ps1 -Installer
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Burmalk-Setup-win-x64
+          path: dist/Burmalk-Setup-1.1.0.exe
+          if-no-files-found: error

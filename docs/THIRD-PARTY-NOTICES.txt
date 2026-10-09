@@ -1,0 +1,20 @@
+Burmalk 1.1.0 includes .NET 8 Windows Desktop Runtime and NuGet components.
+
+LibreHardwareMonitorLib 0.9.6: MPL-2.0, Copyright LibreHardwareMonitor contributors.
+Unmodified source: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/v0.9.6
+MPL dependencies BlackSharp.Core, DiskInfoToolkit, RAMSPDToolkit-NDD: source and license metadata are listed in COMPONENTS.txt.
+PresentMonFps 2.0.6: MIT, Copyright ema; original license included.
+Microsoft .NET/System libraries: original licenses and third-party notices included.
+HidSharp: original license included.
+Mono.Posix.NETStandard: https://github.com/mono/mono/tree/mono-5.2.0.179/mcs/class/Mono.Posix
+
+Support/PawnIO_setup.exe is the unmodified, digitally signed official PawnIO 2.2.0 installer. It is not installed automatically by Burmalk.
+PawnIO source: https://github.com/namazso/PawnIO
+Installer release: https://github.com/namazso/PawnIO.Setup/releases/tag/2.2.0
+PawnIO: GPL-2.0-or-later with upstream exceptions; original license included.
+
+Original texts are provided in licenses/. Source links and NuGet metadata are provided in licenses/COMPONENTS.txt.
+Burmalk does not remove, supersede or limit third-party source license rights.
+Personal settings, photos, game sessions and verification reports are excluded from the distribution.
+Anime wallpaper and Burmalk icon were created with the built-in imagegen tool; generation prompts are in the project docs.
+Inno Setup is a build tool, not bundled as a development tool in the application.
