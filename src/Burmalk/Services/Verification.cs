@@ -16,6 +16,7 @@ namespace Burmalk.Services
     {
         public static string DirectoryPath;
         public static bool RequireCpuTemperature;
+        public static string PhotoPath;
         public static readonly List<string> Pages=new List<string>();
         public static readonly List<string> Failures=new List<string>();
         public static void Capture(Window window,string page)
@@ -28,6 +29,18 @@ namespace Burmalk.Services
             Pages.Add(page);
         }
         private static void Check(bool condition,string name) { if(!condition)Failures.Add(name); }
+        private static string PhotoFixture(string folder,Color color)
+        {
+            Directory.CreateDirectory(folder);string file=Path.Combine(folder,"photo.png");
+            byte[] pixels=new byte[8*8*4];for(int i=0;i<pixels.Length;i+=4){pixels[i]=color.B;pixels[i+1]=color.G;pixels[i+2]=color.R;pixels[i+3]=255;}
+            var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(8,8,96,96,PixelFormats.Bgra32,null,pixels,32)));
+            using(var stream=File.Create(file))encoder.Save(stream);return file;
+        }
+        private static bool HasColor(BitmapSource image,Color color)
+        {
+            if(image==null)return false;var converted=new FormatConvertedBitmap(image,PixelFormats.Bgra32,null,0);var pixel=new byte[4];
+            converted.CopyPixels(new Int32Rect(0,0,1,1),pixel,4,0);return pixel[0]==color.B&&pixel[1]==color.G&&pixel[2]==color.R;
+        }
         public static void Interact(UserControl view,string page)
         {
             if(DirectoryPath==null)return;
@@ -73,8 +86,20 @@ namespace Burmalk.Services
                 if(theme=="Anime")Check(Appearance.LoadImage(App.Store.Settings)!=null,"Anime background loads");
                 Capture(Application.Current.MainWindow,"Theme-"+theme);
             }
-            var photo=Appearance.ImportPhoto(Path.Combine(DirectoryPath,"Dashboard-final.png"),App.Store.RootDir);
-            App.Store.Settings.BackgroundImage=photo;App.Store.Settings.Theme="Custom photo";App.Store.Settings.CompactLayout=true;Appearance.Apply(App.Store.Settings);
+            var picker=new Burmalk.Views.SettingsView();
+            picker.SelectPhoto(PhotoFixture(Path.Combine(DirectoryPath,"first-photo"),Colors.Red));
+            string first=App.Store.Settings.BackgroundImage;
+            picker.SelectPhoto(PhotoFixture(Path.Combine(DirectoryPath,"second-photo"),Colors.Blue));
+            Check(App.Store.Settings.BackgroundImage!=first,"Different photos with the same filename must replace the wallpaper");
+            var windowLayers=Application.Current.MainWindow.Content as Grid;
+            Check(HasColor(windowLayers?.Children.OfType<Image>().FirstOrDefault()?.Source as BitmapSource,Colors.Blue),"Window displays the second selected photo, without stale image content");
+            Check(File.Exists(first),"Replacing wallpaper preserves the previous imported image");
+            Check((double)Application.Current.FindResource("PanelOpacity")==1,"Wallpaper does not reduce text/graph opacity");
+            string second=App.Store.Settings.BackgroundImage;
+            try{picker.SelectPhoto(Path.Combine(DirectoryPath,"missing-image.png"));Check(false,"Missing photo must report an error");}catch(FileNotFoundException){}
+            Check(App.Store.Settings.BackgroundImage==second,"Failed photo import preserves the current wallpaper");
+            if(!string.IsNullOrEmpty(PhotoPath))picker.SelectPhoto(PhotoPath);
+            App.Store.Settings.CompactLayout=true;Appearance.Apply(App.Store.Settings);
             Check(Appearance.LoadImage(App.Store.Settings)!=null,"Imported photo loads");Capture(Application.Current.MainWindow,"Theme-custom-photo-compact");
             App.Store.Save();var appearanceRead=new DataStore(App.Store.RootDir);appearanceRead.Load();
             Check(appearanceRead.Settings.Theme=="Custom photo"&&appearanceRead.Settings.CompactLayout&&File.Exists(appearanceRead.Settings.BackgroundImage),"Appearance survives restart");

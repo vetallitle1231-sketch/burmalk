@@ -26,7 +26,7 @@ namespace Burmalk
             // Global safety net: never let a sampler crash the app.
             DispatcherUnhandledException += (s, ex) =>
             {
-                if(Verification.DirectoryPath!=null) { Verification.Failures.Add(ex.Exception.ToString());ex.Handled=true;return; }
+                if(Verification.DirectoryPath!=null) { Verification.Failures.Add(ex.Exception.ToString());System.IO.File.WriteAllText(System.IO.Path.Combine(Verification.DirectoryPath,"verification.json"),System.Text.Json.JsonSerializer.Serialize(new{Verification.Failures}));ex.Handled=true;Shutdown(1);return; }
                 try
                 {
                     Services.ErrorLog.Write("Dispatcher EXC: " + ex.Exception.ToString()
@@ -49,6 +49,7 @@ namespace Burmalk
             // Self-test arguments (used for automated verification, optional)
             var args = e.Args ?? new string[0];
             Verification.RequireCpuTemperature=args.Contains("--require-cpu-temperature");
+            int photoArg=Array.IndexOf(args,"--verify-photo");if(photoArg>=0&&photoArg+1<args.Length)Verification.PhotoPath=System.IO.Path.GetFullPath(args[photoArg+1]);
             if (args.Contains("--selftest")) SelfTestMode = "navigate";
             if (args.Contains("--selftest-exit")) SelfTestMode = "navigate-exit";
             int verifyArg=Array.IndexOf(args,"--verify-dir");

@@ -6,6 +6,7 @@ namespace Burmalk.Models
         // Appearance
         public string Theme = "Dark";
         public string BackgroundImage = "";
+        public string BackgroundImageName = "";
         public double BackgroundDim = 0.5;
         public bool CompactLayout;
         public bool OverlayTransparent = true;

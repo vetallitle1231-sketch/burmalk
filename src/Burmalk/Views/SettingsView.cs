@@ -5,7 +5,7 @@ using Burmalk.Services;
 
 namespace Burmalk.Views
 {
-    public class SettingsView : UserControl
+    public class SettingsView : UserControl,IRefreshable
     {
         private readonly TextBox _interval,_history,_endpoint,_refresh,_opacity,_hotkey,_size;
         private readonly CheckBox _overlay,_detect,_cpu,_gpu,_ram,_vram,_sensors;
@@ -14,15 +14,18 @@ namespace Burmalk.Views
         private readonly CheckBox _compact, _transparent;
         private readonly Slider _dim;
         private readonly TextBlock _photo=ViewUi.Text("");
+        private readonly Image _photoPreview=new Image {Height=100,MaxWidth=280,Stretch=System.Windows.Media.Stretch.Uniform,HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0,8,0,8)};
         private readonly TextBlock _status=ViewUi.Text("");
+        private readonly TextBlock _hotkeyStatus=ViewUi.Text("");
         public SettingsView()
         {
             var s=App.Store.Settings; var root=new StackPanel();
             _theme=new ComboBox {ItemsSource=Appearance.Themes,SelectedItem=s.Theme,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,MinWidth=220};
             _compact=Check("Compact cards",s.CompactLayout);
             _dim=new Slider {Minimum=0.1,Maximum=0.9,Value=s.BackgroundDim,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,Width=300};
-            _photo.Text=string.IsNullOrEmpty(s.BackgroundImage)?"No custom photo selected":System.IO.Path.GetFileName(s.BackgroundImage);
-            root.Children.Add(ViewUi.Panel("Appearance",ViewUi.Text("Color theme / wallpaper"),_theme,_compact,ViewUi.Text("Wallpaper dimming"),_dim,ViewUi.Button("Choose photo from PC",ChoosePhoto),_photo,ViewUi.Button("Apply appearance",ApplyAppearance)));
+            _photo.Text=string.IsNullOrEmpty(s.BackgroundImage)?"No custom photo selected":string.IsNullOrEmpty(s.BackgroundImageName)?System.IO.Path.GetFileName(s.BackgroundImage):s.BackgroundImageName;
+            UpdatePhotoPreview();
+            root.Children.Add(ViewUi.Panel("Appearance",ViewUi.Text("Color theme / wallpaper"),_theme,_compact,ViewUi.Text("Wallpaper dimming"),_dim,ViewUi.Button("Choose photo from PC",ChoosePhoto),_photo,_photoPreview,ViewUi.Button("Remove wallpaper",RemoveWallpaper),ViewUi.Button("Apply appearance",ApplyAppearance)));
             _interval=Input(s.UpdateIntervalMs.ToString()); _history=Input(s.GraphHistorySeconds.ToString());
             _sensors=Check("Enable CPU sensors on startup · Windows permission required",s.CpuSensorsEnabled);
             root.Children.Add(ViewUi.Panel("Monitoring",ViewUi.Text("Update interval (300–10000 ms)"),_interval,ViewUi.Text("Graph history (10–3600 seconds)"),_history));
@@ -35,18 +38,28 @@ namespace Burmalk.Views
             _position=new ComboBox {ItemsSource=new[]{"TopLeft","TopRight","BottomLeft","BottomRight"},SelectedItem=s.OverlayPosition};
             _cpu=Check("CPU",s.OverlayShowCpu); _gpu=Check("GPU and temperature",s.OverlayShowGpu); _ram=Check("RAM",s.OverlayShowRam); _vram=Check("VRAM",s.OverlayShowVram);
             _transparent=Check("Transparent overlay · numbers + BURMALK",s.OverlayTransparent);
+            root.Children.Add(_hotkeyStatus);Refresh();
             root.Children.Add(ViewUi.Panel("FPS overlay",_overlay,_transparent,ViewUi.Text("Position"),_position,ViewUi.Text("Refresh (300–10000 ms)"),_refresh,ViewUi.Text("Opacity (0.2–1.0)"),_opacity,ViewUi.Text("Font size (10–30)"),_size,ViewUi.Text("Global toggle hotkey (F1–F12)"),_hotkey,_cpu,_gpu,_ram,_vram));
             root.Children.Add(ViewUi.Panel("Gaming",_detect,ViewUi.Text("Settings, sessions and profiles are stored in "+App.Store.RootDir)));
             root.Children.Add(ViewUi.Button("Save settings",Save)); root.Children.Add(ViewUi.Button("Preview overlay · 10 seconds",OverlayManager.Preview)); root.Children.Add(_status); Content=root;
         }
         private static TextBox Input(string text)=>new TextBox {Text=text,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,MinWidth=220};
+        public void Refresh()=>_hotkeyStatus.Text=OverlayManager.HotkeyStatus;
         private static CheckBox Check(string text,bool value)=>new CheckBox{Content=text,IsChecked=value};
+        public void SelectPhoto(string file)
+        {
+            var imported=Appearance.ImportPhoto(file,App.Store.RootDir);
+            App.Store.Settings.BackgroundImage=imported;App.Store.Settings.BackgroundImageName=System.IO.Path.GetFileName(file);_photo.Text=App.Store.Settings.BackgroundImageName;
+            _photo.ToolTip=file;_theme.SelectedItem="Custom photo";UpdatePhotoPreview();ApplyAppearance();
+        }
+        private void UpdatePhotoPreview()=>_photoPreview.Source=Appearance.LoadImage(new Burmalk.Models.AppSettings{Theme="Custom photo",BackgroundImage=App.Store.Settings.BackgroundImage});
+        private void RemoveWallpaper(){App.Store.Settings.BackgroundImage="";App.Store.Settings.BackgroundImageName="";_photo.Text="No custom photo selected";_photo.ToolTip=null;_photoPreview.Source=null;_theme.SelectedItem="Dark";ApplyAppearance();}
         private void ChoosePhoto()
         {
-            var dialog=new Microsoft.Win32.OpenFileDialog {Filter="Images|*.png;*.jpg;*.jpeg;*.bmp",Title="Choose Burmalk wallpaper"};
-            if(dialog.ShowDialog()!=true)return;
-            try { App.Store.Settings.BackgroundImage=Appearance.ImportPhoto(dialog.FileName,App.Store.RootDir);_photo.Text=System.IO.Path.GetFileName(dialog.FileName);_theme.SelectedItem="Custom photo";ApplyAppearance(); }
-            catch(Exception ex) { _status.Text=ex.Message; }
+            var dialog=new Microsoft.Win32.OpenFileDialog {Filter="Images|*.png;*.jpg;*.jpeg;*.bmp;*.webp;*.gif",Title="Choose Burmalk wallpaper"};
+            if(dialog.ShowDialog(Window.GetWindow(this))!=true)return;
+            try { SelectPhoto(dialog.FileName); }
+            catch(Exception ex) { _status.Text="Wallpaper unchanged: "+ex.Message;Burmalk.Services.ErrorLog.Write("Wallpaper import: "+ex.Message);MessageBox.Show(Window.GetWindow(this),"Unable to apply the selected picture.\n"+ex.Message,"Burmalk"); }
         }
         private void ApplyAppearance()
         {

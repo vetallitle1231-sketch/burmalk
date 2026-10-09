@@ -104,7 +104,9 @@ namespace Burmalk
             host.Children.Add(_nav);
             host.Children.Add(_content);
 
-            root.Children.Add(branding);
+            var headerSurface=new Border {Child=branding};headerSurface.SetResourceReference(Border.BackgroundProperty,"ChromeBg");DockPanel.SetDock(headerSurface,Dock.Top);
+            _nav.SetResourceReference(ListBox.BackgroundProperty,"ChromeBg");
+            root.Children.Add(headerSurface);
             root.Children.Add(host);
             var layers=new Grid(); layers.Children.Add(_wallpaper);layers.Children.Add(_shade);layers.Children.Add(root);Content=layers;
             Appearance.Changed+=UpdateAppearance;UpdateAppearance();

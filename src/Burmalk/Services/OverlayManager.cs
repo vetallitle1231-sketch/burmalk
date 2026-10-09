@@ -21,9 +21,11 @@ namespace Burmalk.Services
         private static HwndSource _source;
         private static IntPtr _handle;
         private static DateTime _previewUntil;
+        private static readonly OverlayVisibility Visibility=new OverlayVisibility();
+        public static string HotkeyStatus {get;private set;}="Hotkey is initializing…";
         public static void Preview() { _previewUntil=DateTime.UtcNow.AddSeconds(10); Tick(null,EventArgs.Empty); }
         private const int HotkeyId=4726;
-        [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr h,int id,uint modifiers,uint key);
+        [DllImport("user32.dll",SetLastError=true)] private static extern bool RegisterHotKey(IntPtr h,int id,uint modifiers,uint key);
         [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr h,int id);
         public static void Initialize(App app,DataStore store,SystemMonitor monitor)
         {
@@ -35,14 +37,24 @@ namespace Burmalk.Services
         public static void ApplySettings()
         {
             if(_store==null)return;
+            Visibility.Reset();
             _timer.Interval=TimeSpan.FromMilliseconds(Math.Clamp(_store.Settings.OverlayRefreshMs,300,10000));
             UnregisterHotKey(_handle,HotkeyId);
-            if(int.TryParse((_store.Settings.OverlayHotkey??"F8").TrimStart('F'),out int key)&&key>=1&&key<=12)
-                if(!RegisterHotKey(_handle,HotkeyId,0x4000,(uint)(0x70+key-1)))ErrorLog.Write("Overlay hotkey already in use.");
+            HotkeyStatus="Choose a hotkey from F1 to F12.";
+            if(int.TryParse((_store.Settings.OverlayHotkey??"F8").Trim().ToUpperInvariant().TrimStart('F'),out int key)&&key>=1&&key<=12)
+            {
+                if(RegisterHotKey(_handle,HotkeyId,0x4000,(uint)(0x70+key-1)))HotkeyStatus="F"+key+" is ready · shows/hides the overlay even without game detection.";
+                else{int error=Marshal.GetLastWin32Error();HotkeyStatus=error==1409?"F"+key+" is used by another app. Choose a different hotkey.":"Hotkey registration failed (Windows error "+error+").";ErrorLog.Write(HotkeyStatus);}
+            }
         }
         private static IntPtr Hook(IntPtr hwnd,int msg,IntPtr w,IntPtr l,ref bool handled)
         {
-            if(msg==0x0312&&w.ToInt32()==HotkeyId){_store.Settings.OverlayEnabled=!_store.Settings.OverlayEnabled;_store.Save();handled=true;}
+            if(msg==0x0312&&w.ToInt32()==HotkeyId)
+            {
+                var game=GameService.Current;var profile=game!=null?_store.GetProfile(game.GameName):null;
+                _store.Settings.OverlayEnabled=Visibility.Toggle(_store.Settings.OverlayEnabled,game?.Active==true,profile?.OverlayEnabled??true,DateTime.UtcNow<_previewUntil);
+                _previewUntil=DateTime.MinValue;_store.Save();Tick(null,EventArgs.Empty);handled=true;
+            }
             return IntPtr.Zero;
         }
         private static void Tick(object sender,EventArgs args)
@@ -50,10 +62,10 @@ namespace Burmalk.Services
             try
             {
                 var game=GameService.Current;var profile=game!=null?_store.GetProfile(game.GameName):null;
-                bool show=_store.Settings.OverlayEnabled&&game?.Active==true&&(profile==null||profile.OverlayEnabled);
-                if(DateTime.UtcNow<_previewUntil){show=true;game=game??new GameCurrent{GameName="Burmalk · preview"};}
+                bool show=Visibility.IsVisible(_store.Settings.OverlayEnabled,game?.Active==true,profile?.OverlayEnabled??true,DateTime.UtcNow<_previewUntil);
                 _timer.Interval=TimeSpan.FromMilliseconds(Math.Clamp(profile?.OverlayRefreshMs??_store.Settings.OverlayRefreshMs,300,10000));
                 if(!show){_window?.Hide();return;}
+                game??=new GameCurrent{GameName="Burmalk · manual overlay"};
                 if(_window==null)_window=new OverlayWindow();
                 _window.Update(_store.Settings,profile,game,_monitor.LastSample);_window.Show();
             }catch(Exception ex){ErrorLog.Write("Overlay: "+ex);}

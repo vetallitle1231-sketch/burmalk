@@ -17,7 +17,7 @@ namespace Burmalk.Services
         private static int _scanning;
         private static int _fpsSampling;
         private static GameCurrent _current;
-        private static readonly HashSet<string> Known=new HashSet<string>(StringComparer.OrdinalIgnoreCase) {"cs2","dota2","valorant-win64-shipping","fortniteclient-win64-shipping","r5apex","rocketleague","gta5","eldenring","cyberpunk2077","witcher3","overwatch","minecraft","starfield","baldursgate3","bg3","bg3_dx11"};
+        private static readonly HashSet<string> Known=new HashSet<string>(StringComparer.OrdinalIgnoreCase) {"cs2","dota2","valorant-win64-shipping","fortniteclient-win64-shipping","r5apex","rocketleague","gta5","eldenring","cyberpunk2077","witcher3","overwatch","minecraft","starfield","baldursgate3","bg3","bg3_dx11","How to Fish"};
         private static readonly double[] Sums=new double[6];
         private static readonly int[] Counts=new int[6];
         public static GameCurrent Current { get { lock(Gate) { return _current==null?null: new GameCurrent {Active=_current.Active,GameName=_current.GameName,Executable=_current.Executable,Pid=_current.Pid,StartedUtc=_current.StartedUtc,DurationSeconds=_current.DurationSeconds,FpsAvailable=_current.FpsAvailable,FpsCurrent=_current.FpsCurrent,FpsAvg=_current.FpsAvg,FpsMin=_current.FpsMin,FpsMax=_current.FpsMax,CpuPercent=_current.CpuPercent,CpuTempC=_current.CpuTempC,GpuPercent=_current.GpuPercent,GpuTempC=_current.GpuTempC,GpuVramUsedGb=_current.GpuVramUsedGb,RamUsedGb=_current.RamUsedGb}; } } }
