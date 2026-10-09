@@ -12,5 +12,6 @@ namespace Burmalk.Services
             return _manual.Value;
         }
         public void Reset() => _manual=null;
+        public bool SetManual(bool show){_manual=show;return show;}
     }
 }

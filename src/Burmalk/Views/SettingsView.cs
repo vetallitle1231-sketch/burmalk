@@ -44,7 +44,7 @@ namespace Burmalk.Views
             root.Children.Add(ViewUi.Button("Save settings",Save)); root.Children.Add(ViewUi.Button("Preview overlay · 10 seconds",OverlayManager.Preview)); root.Children.Add(_status); Content=root;
         }
         private static TextBox Input(string text)=>new TextBox {Text=text,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,MinWidth=220};
-        public void Refresh()=>_hotkeyStatus.Text=OverlayManager.HotkeyStatus;
+        public void Refresh()=>_hotkeyStatus.Text=OverlayManager.HotkeyStatus+"\n"+OverlayManager.DisplayStatus+"\nFor games using exclusive fullscreen, choose borderless windowed mode if the overlay remains hidden.";
         private static CheckBox Check(string text,bool value)=>new CheckBox{Content=text,IsChecked=value};
         public void SelectPhoto(string file)
         {

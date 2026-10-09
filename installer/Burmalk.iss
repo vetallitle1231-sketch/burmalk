@@ -1,4 +1,4 @@
-#define AppVersion "1.1.3"
+#define AppVersion "1.1.4"
 [Setup]
 AppId=Burmalk.Monitoring.App
 AppName=Burmalk
@@ -32,7 +32,7 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "..\.build\publish-v1.1.3\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\.build\publish-v1.1.4\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\.build\tools\PawnIO_setup.exe"; DestDir: "{app}\Support"; Flags: ignoreversion
 Source: "..\docs\CPU-SENSORS.txt"; DestDir: "{app}\Support"; Flags: ignoreversion
 

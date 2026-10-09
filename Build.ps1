@@ -4,7 +4,7 @@ $taskDotnet = (Get-Command dotnet -ErrorAction SilentlyContinue).Source
 if (-not $taskDotnet) { $taskDotnet = Join-Path $env:USERPROFILE '.dotnet\dotnet.exe' }
 if (-not (Test-Path -LiteralPath $taskDotnet)) { throw 'Install the .NET 8 SDK to build Burmalk.' }
 $taskRoot = $PSScriptRoot
-$taskPublish = Join-Path $taskRoot '.build\publish-v1.1.3'
+$taskPublish = Join-Path $taskRoot '.build\publish-v1.1.4'
 $taskArguments=@('publish',(Join-Path $taskRoot 'src\Burmalk\Burmalk.csproj'),'-c','Release','-r','win-x64','--self-contained','true','-o',$taskPublish,"-p:RestorePackagesPath=$taskRoot\.build\packages",'-p:NuGetAudit=false')
 if(Test-Path -LiteralPath (Join-Path $taskRoot '.build\offline-feed')){$taskArguments+=@('--source',(Join-Path $taskRoot '.build\offline-feed'))}
 & $taskDotnet @taskArguments
@@ -22,5 +22,5 @@ if ($Installer) {
  if (-not $taskCompiler) { throw 'Install Inno Setup 6.7 or newer, and add ISCC.exe to PATH.' }
  & $taskCompiler (Join-Path $taskRoot 'installer\Burmalk.iss')
  if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
- Write-Host "Share: $taskRoot\dist\Burmalk-Setup-1.1.3.exe"
+ Write-Host "Share: $taskRoot\dist\Burmalk-Setup-1.1.4.exe"
 }

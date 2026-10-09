@@ -30,6 +30,7 @@ namespace Burmalk.Services
             try
             {
                 int pid=0;string name=null,exe=null;
+                int foregroundPid=OverlayTarget.Pid(OverlayTarget.GetForegroundWindow());
                 bool enabled=App.Store.Settings.GameDetectionEnabled;
                 var names=new HashSet<string>(Known,StringComparer.OrdinalIgnoreCase);
                 foreach(var profile in App.Store.AllProfiles)names.Add(profile.GameName);
@@ -38,7 +39,8 @@ namespace Burmalk.Services
                     using(p) try
                     {
                         if(!names.Contains(p.ProcessName))continue;
-                        lock(Gate) if(pid!=0 && (_current==null || p.Id!=_current.Pid))continue;
+                        if(pid!=0&&pid==foregroundPid)continue;
+                        lock(Gate) if(p.Id!=foregroundPid&&pid!=0 && (_current==null || p.Id!=_current.Pid))continue;
                         if (p.MainWindowHandle == IntPtr.Zero) continue;
                         pid=p.Id;name=p.ProcessName;try{exe=p.MainModule?.FileName;}catch{}
                     }catch{}

@@ -13,6 +13,8 @@ namespace Burmalk
         public static Services.DataStore Store { get; private set; }
         public static OllamaMonitor Ai { get; private set; }
         public static string SelfTestMode { get; private set; } = "";
+        private Mutex _instanceMutex;
+        private bool _ownsInstance;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -48,6 +50,13 @@ namespace Burmalk
 
             // Self-test arguments (used for automated verification, optional)
             var args = e.Args ?? new string[0];
+            int overlayTestArg=Array.IndexOf(args,"--overlay-test-dir");
+            if(overlayTestArg>=0&&overlayTestArg+1<args.Length)
+            {
+                SelfTestMode="overlay";Verification.DirectoryPath=System.IO.Path.GetFullPath(args[overlayTestArg+1]);
+                System.IO.Directory.CreateDirectory(Verification.DirectoryPath);
+                OverlayManager.DiagnosticPath=System.IO.Path.Combine(Verification.DirectoryPath,"overlay-status.json");
+            }
             Verification.RequireCpuTemperature=args.Contains("--require-cpu-temperature");
             int photoArg=Array.IndexOf(args,"--verify-photo");if(photoArg>=0&&photoArg+1<args.Length)Verification.PhotoPath=System.IO.Path.GetFullPath(args[photoArg+1]);
             if (args.Contains("--selftest")) SelfTestMode = "navigate";
@@ -66,6 +75,18 @@ namespace Burmalk
                 try{if(CpuSensorAccess.RestartElevated())return;}
                 catch(System.ComponentModel.Win32Exception ex) when(ex.NativeErrorCode==1223){}
                 catch(Exception ex){ErrorLog.Write("CPU sensor permission: "+ex.Message);}
+            }
+            // Acquire after an optional elevated restart; the child waits for the parent.
+            // Separate verification runs use isolated settings and do not own the user instance.
+            if(Verification.DirectoryPath==null&&SelfTestMode=="")
+            {
+                try
+                {
+                    _instanceMutex=new Mutex(false,@"Local\Burmalk-"+System.Security.Principal.WindowsIdentity.GetCurrent().User.Value);
+                    try{_ownsInstance=_instanceMutex.WaitOne(0);}catch(AbandonedMutexException){_ownsInstance=true;}
+                    if(!_ownsInstance){MessageBox.Show("Burmalk is already running. Open its existing window from the taskbar.","Burmalk");Shutdown();return;}
+                }
+                catch(UnauthorizedAccessException){MessageBox.Show("Burmalk is already running with administrator permissions. Open its existing window from the taskbar.","Burmalk");Shutdown();return;}
             }
             Appearance.Apply(Store.Settings);
             if(Verification.DirectoryPath!=null) { Store.Settings.GameDetectionEnabled=false;Store.Settings.OverlayEnabled=false; }
@@ -91,11 +112,15 @@ namespace Burmalk
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // A duplicate launch must not overwrite settings or stop the live instance's capture.
+            if(Monitor==null){_instanceMutex?.Dispose();base.OnExit(e);return;}
             try { Services.GameService.Stop(); } catch { }
             try { Services.OverlayManager.Shutdown(); } catch { }
             try { Monitor.Dispose(); } catch { }
             try { Ai.Dispose(); } catch { }
             try { Store.Save(); } catch { }
+            if(_ownsInstance){_instanceMutex.ReleaseMutex();_ownsInstance=false;}
+            _instanceMutex?.Dispose();
             base.OnExit(e);
         }
     }
