@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d1b">
+  <meta name="description" content="Burmalk — мониторинг компьютера и игровой оверлей для Windows. Показатели CPU, GPU, памяти, сети и FPS в одном месте.">
+  <title>Burmalk — твой ПК в одном взгляде</title>
+  <link rel="icon" href="assets/Burmalk.ico">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header wrap">
+    <a class="brand" href="#top" aria-label="Burmalk — на главную">
+      <img src="assets/Burmalk.png" alt="" width="38" height="38">
+      <span>Burmalk</span>
+    </a>
+    <nav aria-label="Навигация">
+      <a href="#features">Возможности</a>
+      <a href="#setup">Установка</a>
+      <a href="#questions">Вопросы</a>
+    </nav>
+    <a class="header-download" href="../dist/Burmalk-Setup-1.1.7.exe" download>Скачать 1.1.7 <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <span class="eyebrow"><span class="pulse-dot"></span> ДЛЯ WINDOWS 10 / 11</span>
+        <h1 id="hero-title">Твой ПК.<br><span>В одном взгляде.</span></h1>
+        <p class="hero-lead">Burmalk показывает нагрузку, температуру, память и сеть на одной панели. В игре помогает следить за FPS через оверлей RTSS.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="../dist/Burmalk-Setup-1.1.7.exe" download>Скачать Burmalk <span aria-hidden="true">↓</span></a>
+          <a class="button button-secondary" href="#features">Что умеет <span aria-hidden="true">↘</span></a>
+        </div>
+        <p class="hero-note">Версия 1.1.7 · Windows x64 · установщик включает .NET</p>
+      </div>
+
+      <div class="product-scene" aria-label="Иллюстрация главного экрана Burmalk">
+        <div class="scene-glow" aria-hidden="true"></div>
+        <div class="app-window">
+          <div class="app-topbar">
+            <div class="app-brand"><img src="assets/Burmalk.png" alt="" width="21" height="21"><strong>Burmalk</strong><span class="app-version">/ DASHBOARD</span></div>
+            <span class="app-live"><i></i> LIVE</span>
+          </div>
+          <div class="app-body">
+            <aside class="app-sidebar" aria-hidden="true">
+              <span class="side-active">Обзор</span><span>CPU</span><span>GPU</span><span>Память</span><span>Игры</span>
+            </aside>
+            <div class="app-main">
+              <div class="app-heading"><div><small>СИСТЕМА В РЕАЛЬНОМ ВРЕМЕНИ</small><strong>Всё под контролем</strong></div><span>● Все системы работают</span></div>
+              <div class="metric-grid">
+                <div class="metric-card cpu"><span class="metric-label"><b>◉</b> CPU</span><strong>31<span>%</span></strong><small>57 °C · 4 200 MHz</small><div class="spark"><svg viewBox="0 0 160 36" preserveAspectRatio="none" aria-hidden="true"><path d="M0 27 L12 22 L22 24 L35 12 L46 18 L59 14 L72 24 L84 11 L97 17 L110 15 L123 23 L138 9 L149 15 L160 11"/></svg></div></div>
+                <div class="metric-card gpu"><span class="metric-label"><b>◆</b> GPU</span><strong>45<span>%</span></strong><small>62 °C · VRAM 3.2 GiB</small><div class="spark"><svg viewBox="0 0 160 36" preserveAspectRatio="none" aria-hidden="true"><path d="M0 25 L12 25 L22 18 L35 19 L46 11 L59 14 L72 20 L84 10 L97 15 L110 8 L123 16 L138 12 L149 17 L160 14"/></svg></div></div>
+                <div class="metric-card ram"><span class="metric-label"><b>▤</b> ПАМЯТЬ</span><strong>48<span>%</span></strong><small>15.4 / 32 GiB</small><div class="bar"><span></span></div></div>
+                <div class="metric-card fps"><span class="metric-label"><b>▶</b> ИГРА / FPS</span><strong>144<span> FPS</span></strong><small>AVG 139 FPS · 6.9 ms</small><div class="spark"><svg viewBox="0 0 160 36" preserveAspectRatio="none" aria-hidden="true"><path d="M0 17 L12 15 L22 19 L35 16 L46 14 L59 18 L72 15 L84 13 L97 16 L110 15 L123 17 L138 13 L149 14 L160 15"/></svg></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="demo-caption">Иллюстрация интерфейса · показатели для примера</span>
+      </div>
+    </section>
+
+    <section class="stat-strip wrap" aria-label="Ключевые возможности">
+      <div><strong>9</strong><span>карточек на главной</span></div>
+      <div><strong>15</strong><span>разделов приложения</span></div>
+      <div><strong>RTSS</strong><span>оверлей для игр</span></div>
+      <div><strong>1.1.7</strong><span>текущая версия</span></div>
+    </section>
+
+    <section id="features" class="section wrap" aria-labelledby="features-title">
+      <div class="section-heading"><span class="kicker">ВОЗМОЖНОСТИ</span><h2 id="features-title">Важное всегда рядом.</h2><p>Быстро оцени состояние ПК на главной панели, а за подробностями переходи в отдельные разделы.</p></div>
+      <div class="feature-grid">
+        <article class="feature feature-large"><div class="feature-icon blue">▦</div><h3>Живой обзор</h3><p>CPU, GPU, оперативная память, диски, сеть, активная игра и процессы. Переставляй карточки так, как удобно тебе.</p><div class="feature-chips"><span>Температура</span><span>Частота</span><span>Графики</span></div></article>
+        <article class="feature"><div class="feature-icon mint">⌁</div><h3>Показатели в игре</h3><p>FPS, средний FPS и доступные датчики поверх совместимых игр через RTSS. Включение горячей клавишей F8.</p></article>
+        <article class="feature"><div class="feature-icon violet">◐</div><h3>Твой внешний вид</h3><p>Несколько цветовых тем, аниме-фон или собственное фото. Полупрозрачные карточки сохраняют читаемость.</p></article>
+        <article class="feature"><div class="feature-icon gold">♫</div><h3>Музыка на главной</h3><p>Текущий трек Spotify или приложения SoundCloud, когда оно передаёт сведения о воспроизведении в Windows.</p></article>
+        <article class="feature"><div class="feature-icon blue">◫</div><h3>История и проверка</h3><p>Игровые сеансы, сведения об оборудовании и ручной бенчмарк CPU, памяти и дискового файла.</p></article>
+      </div>
+    </section>
+
+    <section id="setup" class="section setup-section" aria-labelledby="setup-title"><div class="wrap setup-inner">
+      <div class="section-heading"><span class="kicker">НАЧНИ ЗА ПАРУ МИНУТ</span><h2 id="setup-title">Установить просто.</h2><p>Программа работает локально на твоём компьютере. Для основной панели аккаунт не нужен.</p></div>
+      <div class="steps"><div class="step"><span class="step-number">01</span><h3>Скачай</h3><p>Открой установщик Burmalk для Windows x64.</p></div><div class="step"><span class="step-number">02</span><h3>Запусти</h3><p>Установка добавит ярлык на рабочий стол и в меню «Пуск».</p></div><div class="step"><span class="step-number">03</span><h3>Настрой</h3><p>Выбери тему и расположение карточек. Для игрового оверлея установи RTSS.</p></div></div>
+      <a class="button button-primary" href="../dist/Burmalk-Setup-1.1.7.exe" download>Скачать установщик 1.1.7 <span aria-hidden="true">↓</span></a>
+    </div></section>
+
+    <section id="questions" class="section wrap faq" aria-labelledby="faq-title"><div class="section-heading"><span class="kicker">КОРОТКО О ГЛАВНОМ</span><h2 id="faq-title">Частые вопросы</h2></div><div class="faq-grid">
+      <article><h3>Нужен ли интернет для работы?</h3><p>Для установки и обычного мониторинга — нет. Показатели считываются на самом компьютере.</p></article>
+      <article><h3>Как включить оверлей?</h3><p>Установи <a href="https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/" target="_blank" rel="noopener noreferrer">RTSS</a>, запусти игру и нажми F8. Совместимость зависит от игры и её защиты.</p></article>
+      <article><h3>Почему температура CPU недоступна?</h3><p>Для аппаратного датчика может понадобиться подписанный PawnIO и разрешение администратора. Burmalk подскажет действие в разделе CPU.</p></article>
+      <article><h3>Сохранится ли моя настройка?</h3><p>Темы, собственный фон и порядок карточек сохраняются на компьютере между запусками.</p></article>
+    </div></section>
+
+    <section class="final-cta wrap"><div><span class="kicker">BURMALK 1.1.7</span><h2>Пусть цифры будут<br>под рукой.</h2><p>Windows 10 версии 2004 и новее или Windows 11 · x64</p></div><a class="button button-primary" href="../dist/Burmalk-Setup-1.1.7.exe" download>Скачать Burmalk <span aria-hidden="true">↓</span></a></section>
+  </main>
+  <footer class="site-footer wrap"><a class="brand" href="#top"><img src="assets/Burmalk.png" alt="" width="27" height="27"><span>Burmalk</span></a><span>Мониторинг ПК для Windows</span><span>Версия 1.1.7</span></footer>
+</body>
+</html>
