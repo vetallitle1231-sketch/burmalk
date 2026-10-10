@@ -29,11 +29,15 @@ jobs:
       - name: Check overlay toggle behavior without GUI
         shell: pwsh
         run: dotnet run --project tests/OverlayVisibility/OverlayVisibility.csproj -c Release
-      - name: Build self-contained app and installer
+      - name: Check RTSS shared-memory protocol
+        # RTSS protocol checks use isolated memory; no RTSS installation or game is needed.
+        shell: pwsh
+        run: dotnet run --project tests/RtssOverlay/RtssOverlay.csproj -c Release
+      - name: Package app
         shell: pwsh
         run: ./Build.ps1 -Installer
       - uses: actions/upload-artifact@v7
         with:
           name: Burmalk-Setup-win-x64
-          path: dist/Burmalk-Setup-1.1.3.exe
+          path: dist/Burmalk-Setup-1.1.6.exe
           if-no-files-found: error

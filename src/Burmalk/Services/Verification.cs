@@ -45,7 +45,7 @@ namespace Burmalk.Services
         {
             if(DirectoryPath==null)return;
             if(page=="Benchmark")Click(view,"Run short");
-            if(page=="Settings"){Click(view,"Save settings");Click(view,"Preview overlay");}
+            if(page=="Settings")Click(view,"Save settings");
         }
         private static bool Click(DependencyObject root,string text)
         {
@@ -61,7 +61,7 @@ namespace Burmalk.Services
             var values=new double[3];history.Snapshot(values);
             Check(double.IsNaN(values[0])&&values[1]==20&&values[2]==30,"History must preserve missing intervals and ring order");
             var store=new DataStore(Path.Combine(DirectoryPath,"persistence-test"));store.Load();store.Settings.UpdateIntervalMs=1700;
-            store.SaveProfile(new GameProfile{GameName="VerificationProfile",OverlayEnabled=false,OverlayPosition="BottomRight"});
+            store.SaveProfile(new GameProfile{GameName="VerificationProfile",OverlayEnabled=false});
             store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN,CpuTempAvg=App.Monitor.LastSample.CpuTempC});store.Save();
             var read=new DataStore(store.RootDir);read.Load();
             Check(read.Settings.UpdateIntervalMs==1700,"Settings round trip");
@@ -104,10 +104,7 @@ namespace Burmalk.Services
             App.Store.Save();var appearanceRead=new DataStore(App.Store.RootDir);appearanceRead.Load();
             Check(appearanceRead.Settings.Theme=="Custom photo"&&appearanceRead.Settings.CompactLayout&&File.Exists(appearanceRead.Settings.BackgroundImage),"Appearance survives restart");
             App.Store.Settings.Theme=original;App.Store.Settings.CompactLayout=false;Appearance.Apply(App.Store.Settings);
-            if(OverlayManager.CurrentWindow!=null) Capture(OverlayManager.CurrentWindow,"Overlay-preview");
-            else Failures.Add("Overlay preview did not open");
-            if(OverlayManager.CurrentWindow?.Content is Border overlaySurface && overlaySurface.Background is SolidColorBrush overlayBrush)
-                Check(!App.Store.Settings.OverlayTransparent||overlayBrush.Color.A==0,"Overlay has transparent surface");
+            Check(!string.IsNullOrWhiteSpace(OverlayManager.HotkeyStatus),"Overlay hotkey status is available");
             var options=new JsonSerializerOptions{IncludeFields=true,WriteIndented=true,NumberHandling=JsonNumberHandling.AllowNamedFloatingPointLiterals};
             File.WriteAllText(Path.Combine(DirectoryPath,"verification.json"),JsonSerializer.Serialize(new{Pages,Failures,Sample=App.Monitor.LastSample,CpuSensorStatus=App.Monitor.CpuSensors.Status,CpuSensors=App.Monitor.CpuSensors.DescribeSensors(),FrequencySource=App.Monitor.CpuSensors.FrequencySource,Benchmark=Burmalk.Views.BenchmarkView.LastReport,Hardware=App.Monitor.Hardware.Snapshot,AI=App.Ai.Status},options));
         }

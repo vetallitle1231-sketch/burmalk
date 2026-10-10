@@ -7,11 +7,10 @@ namespace Burmalk.Views
 {
     public class SettingsView : UserControl,IRefreshable
     {
-        private readonly TextBox _interval,_history,_endpoint,_refresh,_opacity,_hotkey,_size;
+        private readonly TextBox _interval,_history,_endpoint,_refresh,_hotkey;
         private readonly CheckBox _overlay,_detect,_cpu,_gpu,_ram,_vram,_sensors;
-        private readonly ComboBox _position;
         private readonly ComboBox _theme;
-        private readonly CheckBox _compact, _transparent;
+        private readonly CheckBox _compact;
         private readonly Slider _dim;
         private readonly TextBlock _photo=ViewUi.Text("");
         private readonly Image _photoPreview=new Image {Height=100,MaxWidth=280,Stretch=System.Windows.Media.Stretch.Uniform,HorizontalAlignment=HorizontalAlignment.Left,Margin=new Thickness(0,8,0,8)};
@@ -32,19 +31,17 @@ namespace Burmalk.Views
             root.Children.Add(ViewUi.Panel("CPU sensors / FPS permissions",ViewUi.Text("Click Enable CPU temperature and approve the Windows permission prompt. Burmalk installs or repairs the signed sensor driver when needed. After enabling, future launches request permission automatically. FPS capture also needs this permission."),_sensors,ViewUi.Button("Enable CPU temperature · Windows permission",CpuSensorAccess.Enable)));
             _endpoint=Input(s.AiEndpoint);
             root.Children.Add(ViewUi.Panel("Local AI · Ollama",ViewUi.Text("Server address (HTTP or HTTPS)"),_endpoint,ViewUi.Text("Monitoring uses version and loaded-model endpoints. No inference runs automatically.")));
-            _overlay=Check("Enable overlay",s.OverlayEnabled); _detect=Check("Detect recognized games and configured profiles",s.GameDetectionEnabled);
-            _refresh=Input(s.OverlayRefreshMs.ToString()); _opacity=Input(s.OverlayOpacity.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            _hotkey=Input(s.OverlayHotkey); _size=Input(s.OverlayFontSize.ToString());
-            _position=new ComboBox {ItemsSource=new[]{"TopLeft","TopRight","BottomLeft","BottomRight"},SelectedItem=s.OverlayPosition};
+            _overlay=Check("Show Burmalk overlay through RTSS",s.OverlayEnabled); _detect=Check("Detect recognized games and configured profiles",s.GameDetectionEnabled);
+            _refresh=Input(s.OverlayRefreshMs.ToString()); _hotkey=Input(s.OverlayHotkey);
             _cpu=Check("CPU",s.OverlayShowCpu); _gpu=Check("GPU and temperature",s.OverlayShowGpu); _ram=Check("RAM",s.OverlayShowRam); _vram=Check("VRAM",s.OverlayShowVram);
-            _transparent=Check("Transparent overlay · numbers + BURMALK",s.OverlayTransparent);
+            root.Children.Add(ViewUi.Panel("RTSS",ViewUi.Text("Burmalk sends live figures to RTSS in fullscreen, borderless and windowed games. The game must be supported by RTSS. RTSS controls position, size and color. If the game was open before RTSS, restart the game when convenient."),ViewUi.Button("Start RTSS",RtssOverlay.Start),ViewUi.Button("Get RTSS",()=>System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/"){UseShellExecute=true}))));
             root.Children.Add(_hotkeyStatus);Refresh();
-            root.Children.Add(ViewUi.Panel("FPS overlay",_overlay,_transparent,ViewUi.Text("Position"),_position,ViewUi.Text("Refresh (300–10000 ms)"),_refresh,ViewUi.Text("Opacity (0.2–1.0)"),_opacity,ViewUi.Text("Font size (10–30)"),_size,ViewUi.Text("Global toggle hotkey (F1–F12)"),_hotkey,_cpu,_gpu,_ram,_vram));
+            root.Children.Add(ViewUi.Panel("Game overlay",_overlay,ViewUi.Text("Refresh (300–10000 ms)"),_refresh,ViewUi.Text("Global toggle hotkey (F1–F12)"),_hotkey,_cpu,_gpu,_ram,_vram));
             root.Children.Add(ViewUi.Panel("Gaming",_detect,ViewUi.Text("Settings, sessions and profiles are stored in "+App.Store.RootDir)));
-            root.Children.Add(ViewUi.Button("Save settings",Save)); root.Children.Add(ViewUi.Button("Preview overlay · 10 seconds",OverlayManager.Preview)); root.Children.Add(_status); Content=root;
+            root.Children.Add(ViewUi.Button("Save settings",Save)); root.Children.Add(_status); Content=root;
         }
         private static TextBox Input(string text)=>new TextBox {Text=text,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,MinWidth=220};
-        public void Refresh()=>_hotkeyStatus.Text=OverlayManager.HotkeyStatus+"\n"+OverlayManager.DisplayStatus+"\nFor games using exclusive fullscreen, choose borderless windowed mode if the overlay remains hidden.";
+        public void Refresh()=>_hotkeyStatus.Text=OverlayManager.HotkeyStatus+"\n"+OverlayManager.DisplayStatus+"\n"+RtssOverlay.Status;
         private static CheckBox Check(string text,bool value)=>new CheckBox{Content=text,IsChecked=value};
         public void SelectPhoto(string file)
         {
@@ -69,17 +66,15 @@ namespace Burmalk.Views
         private void Save()
         {
             if (!int.TryParse(_interval.Text,out int interval)||interval<300||interval>10000 || !int.TryParse(_history.Text,out int history)||history<10||history>3600 ||
-                !int.TryParse(_refresh.Text,out int refresh)||refresh<300||refresh>10000 || !int.TryParse(_size.Text,out int size)||size<10||size>30 ||
-                !double.TryParse(_opacity.Text,System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out double opacity)||!double.IsFinite(opacity)||opacity<0.2||opacity>1 ||
+                !int.TryParse(_refresh.Text,out int refresh)||refresh<300||refresh>10000 ||
                 !Uri.TryCreate(_endpoint.Text.Trim(),UriKind.Absolute,out var uri)||(uri.Scheme!="http"&&uri.Scheme!="https")||!string.IsNullOrEmpty(uri.UserInfo) ||
                 !System.Text.RegularExpressions.Regex.IsMatch(_hotkey.Text.Trim(),@"^F([1-9]|1[0-2])$"))
             { _status.Text="Check the ranges, endpoint and F1–F12 hotkey."; return; }
             var s=App.Store.Settings; s.UpdateIntervalMs=interval; s.GraphHistorySeconds=history;s.AiEndpoint=uri.ToString().TrimEnd('/');
             s.CpuSensorsEnabled=_sensors.IsChecked==true;
-            s.OverlayEnabled=_overlay.IsChecked==true;s.GameDetectionEnabled=_detect.IsChecked==true;s.OverlayRefreshMs=refresh;s.OverlayOpacity=opacity;s.OverlayFontSize=size;
-            s.OverlayPosition=_position.SelectedItem as string??"TopLeft";s.OverlayHotkey=_hotkey.Text.Trim();
+            s.OverlayEnabled=_overlay.IsChecked==true;s.GameDetectionEnabled=_detect.IsChecked==true;s.OverlayRefreshMs=refresh;s.OverlayHotkey=_hotkey.Text.Trim();
             s.OverlayShowCpu=_cpu.IsChecked==true;s.OverlayShowGpu=_gpu.IsChecked==true;s.OverlayShowRam=_ram.IsChecked==true;s.OverlayShowVram=_vram.IsChecked==true;
-            s.OverlayTransparent=_transparent.IsChecked==true;ApplyAppearance();
+            ApplyAppearance();
             App.Monitor.SetInterval(interval);App.Ai.SetEndpoint(s.AiEndpoint);OverlayManager.ApplySettings();App.Store.Save();_status.Text="Settings saved.";
         }
     }

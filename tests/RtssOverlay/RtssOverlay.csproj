@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Burmalk/Services/RtssOverlay.cs" Link="RtssOverlay.cs" />
+    <Compile Include="../../src/Burmalk/Services/OverlayText.cs" Link="OverlayText.cs" />
+    <Compile Include="../../src/Burmalk/Models/AppData.cs" Link="AppData.cs" />
+    <Compile Include="../../src/Burmalk/Models/GameModels.cs" Link="GameModels.cs" />
+    <Compile Include="../../src/Burmalk/Models/Sample.cs" Link="Sample.cs" />
+  </ItemGroup>
+</Project>

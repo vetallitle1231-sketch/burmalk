@@ -57,7 +57,6 @@ namespace Burmalk.Models
     {
         public string GameName;
         public bool OverlayEnabled = true;
-        public string OverlayPosition = "TopLeft";
         public int OverlayRefreshMs = 1000;
         public bool ShowGpu = true;
         public bool ShowCpu = true;

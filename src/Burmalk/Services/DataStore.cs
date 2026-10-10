@@ -59,7 +59,6 @@ namespace Burmalk.Services
                 Settings.UpdateIntervalMs = Math.Clamp(Settings.UpdateIntervalMs, 300, 10000);
                 Settings.GraphHistorySeconds = Math.Clamp(Settings.GraphHistorySeconds, 10, 3600);
                 Settings.OverlayRefreshMs = Math.Clamp(Settings.OverlayRefreshMs, 300, 10000);
-                Settings.OverlayOpacity = double.IsFinite(Settings.OverlayOpacity) ? Math.Clamp(Settings.OverlayOpacity, 0.2, 1) : 0.85;
                 if(!Appearance.Themes.Contains(Settings.Theme))Settings.Theme="Dark";
                 Settings.BackgroundDim=double.IsFinite(Settings.BackgroundDim)?Math.Clamp(Settings.BackgroundDim,0.1,0.9):0.5;
             }

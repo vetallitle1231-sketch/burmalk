@@ -1,6 +1,7 @@
-Burmalk 1.1.4
+Burmalk 1.1.6
 
-Запустите Burmalk-Setup-1.1.4.exe и пройдите установку.
+Запустите Burmalk-Setup-1.1.6.exe и пройдите установку.
+Для игрового оверлея установите RTSS с официальной страницы https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/ . Оверлей Burmalk работает только через RTSS. В Settings нажмите Start RTSS, включите Show Burmalk overlay through RTSS и сохраните. F8 включает и выключает цифры в игре. Если RTSS запущен после игры, перезапустите игру, когда удобно.
 Откройте Burmalk через ярлык на рабочем столе или меню «Пуск».
 
 Windows 10 версии 2004 и новее / Windows 11, x64.

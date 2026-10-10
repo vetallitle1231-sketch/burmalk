@@ -9,7 +9,6 @@ namespace Burmalk.Models
         public string BackgroundImageName = "";
         public double BackgroundDim = 0.5;
         public bool CompactLayout;
-        public bool OverlayTransparent = true;
 
         // Monitoring
         public int UpdateIntervalMs = 1000;
@@ -18,10 +17,7 @@ namespace Burmalk.Models
 
         // FPS overlay
         public bool OverlayEnabled;
-        public string OverlayPosition = "TopLeft";
         public int OverlayRefreshMs = 1000;
-        public double OverlayOpacity = 0.85;
-        public int OverlayFontSize = 14;
         public string OverlayHotkey = "F8";
         public bool OverlayShowGpu = true;
         public bool OverlayShowCpu = true;
