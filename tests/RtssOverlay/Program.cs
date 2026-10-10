@@ -9,6 +9,20 @@ if(Array.Exists(args,arg=>arg=="--probe-live"))
     using var live=MemoryMappedFile.OpenExisting("RTSSSharedMemoryV2",MemoryMappedFileRights.ReadWrite);
     using var liveView=live.CreateViewAccessor(0,0,MemoryMappedFileAccess.ReadWrite);
     Console.WriteLine($"RTSS mapping: signature=0x{liveView.ReadUInt32(0):X8}, version=0x{liveView.ReadUInt32(4):X8}, app entries={liveView.ReadUInt32(16)}, OSD slots={liveView.ReadUInt32(28)}");
+    if(args.Length>1&&int.TryParse(args[1],out int requestedPid))
+    {
+        var liveFrames=RtssOverlay.ReadFrames(liveView,requestedPid);
+        Console.WriteLine($"Game PID {requestedPid}: connected={liveFrames.Available}, FPS={liveFrames.Fps:0.0}, frame={liveFrames.FrameMs:0.00} ms");
+    }
+    long liveEntrySize=liveView.ReadUInt32(20),liveOffset=liveView.ReadUInt32(24),liveCount=liveView.ReadUInt32(28);
+    if(liveEntrySize>=4608&&liveCount<=256&&liveOffset+liveEntrySize*liveCount<=liveView.Capacity)
+    for(long i=1;i<liveCount;i++)
+    {
+        var owner=new byte[256];liveView.ReadArray(liveOffset+i*liveEntrySize+256,owner,0,owner.Length);
+        if(Encoding.ASCII.GetString(owner).TrimEnd('\0')!="Burmalk")continue;
+        var osd=new byte[256];liveView.ReadArray(liveOffset+i*liveEntrySize+512,osd,0,osd.Length);
+        Console.WriteLine("Burmalk OSD slot="+i+", text="+Encoding.Latin1.GetString(osd).TrimEnd('\0').Replace('\n','|'));
+    }
     return;
 }
 using var map=MemoryMappedFile.CreateNew(null,20000);
