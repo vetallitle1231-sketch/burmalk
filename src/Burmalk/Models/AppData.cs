@@ -9,6 +9,7 @@ namespace Burmalk.Models
         public string BackgroundImageName = "";
         public double BackgroundDim = 0.5;
         public bool CompactLayout;
+        public string[] DashboardLayout = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes" };
 
         // Monitoring
         public int UpdateIntervalMs = 1000;

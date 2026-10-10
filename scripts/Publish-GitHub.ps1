@@ -9,7 +9,7 @@ $taskLogin=& $taskGh api user --jq .login
 if($LASTEXITCODE -ne 0){throw 'Authorize GitHub CLI first: gh auth login --web --hostname github.com'}
 if($taskLogin.Trim() -ne 'vetallitle1231-sketch'){throw 'Use the authorized project owner account: vetallitle1231-sketch.'}
 $taskRepo='vetallitle1231-sketch/Burmalk'
-$taskInstaller=Join-Path $taskRoot 'dist\Burmalk-Setup-1.1.6.exe'
+$taskInstaller=Join-Path $taskRoot 'dist\Burmalk-Setup-1.1.7.exe'
 if(-not(Test-Path -LiteralPath $taskInstaller)){throw 'Build the release installer first.'}
 if(git status --porcelain){throw 'Commit or review local changes before publishing.'}
 & $taskGh repo view $taskRepo --json name 2>$null
@@ -25,6 +25,6 @@ if($LASTEXITCODE -ne 0){
 }
 & $taskGh repo edit $taskRepo --enable-issues --enable-wiki=false --add-topic windows --add-topic wpf --add-topic monitoring --add-topic gaming-overlay
 if($LASTEXITCODE -ne 0){throw 'Repository settings failed.'}
-& $taskGh release create v1.1.6 $taskInstaller --repo $taskRepo --target main --title 'Burmalk 1.1.6' --notes-file (Join-Path $taskRoot 'docs\RELEASE-NOTES-1.1.6.md')
+& $taskGh release create v1.1.7 $taskInstaller --repo $taskRepo --target main --title 'Burmalk 1.1.7' --notes-file (Join-Path $taskRoot 'docs\RELEASE-NOTES-1.1.7.md')
 if($LASTEXITCODE -ne 0){throw 'Release creation failed; existing releases are not overwritten.'}
 Write-Host "Published: https://github.com/$taskRepo"

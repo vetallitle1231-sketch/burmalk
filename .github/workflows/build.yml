@@ -39,5 +39,5 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: Burmalk-Setup-win-x64
-          path: dist/Burmalk-Setup-1.1.6.exe
+          path: dist/Burmalk-Setup-1.1.7.exe
           if-no-files-found: error

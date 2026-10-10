@@ -54,6 +54,16 @@ namespace Burmalk.Services
             for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)if(Click(VisualTreeHelper.GetChild(root,i),text))return true;
             return false;
         }
+        private static T Find<T>(DependencyObject root) where T : DependencyObject
+        {
+            if(root is T found)return found;
+            for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)
+            {
+                var child=Find<T>(VisualTreeHelper.GetChild(root,i));
+                if(child!=null)return child;
+            }
+            return null;
+        }
         public static void Complete()
         {
             if(DirectoryPath==null)return;
@@ -65,6 +75,18 @@ namespace Burmalk.Services
             store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN,CpuTempAvg=App.Monitor.LastSample.CpuTempC});store.Save();
             var read=new DataStore(store.RootDir);read.Load();
             Check(read.Settings.UpdateIntervalMs==1700,"Settings round trip");
+            Check(NowPlayingService.SourceName("Spotify.exe")=="Spotify"&&
+                  NowPlayingService.SourceName("Chrome._crx_eikjhbkpemcmdeeeamdpkgabmk")=="SoundCloud"&&
+                  NowPlayingService.SourceName("Chrome.exe")==null,"Music sources are identified without claiming unrelated browser audio");
+            var dashboard=Find<Burmalk.Views.DashboardView>(Application.Current.MainWindow);
+            Check(dashboard!=null&&dashboard.CurrentOrder.Length==Burmalk.Views.DashboardView.DefaultOrder.Length,"Dashboard widgets are present");
+            if(dashboard!=null)
+            {
+                dashboard.MoveCard("music","cpu");
+                var layoutRead=new DataStore(App.Store.RootDir);layoutRead.Load();
+                Check(dashboard.CurrentOrder[0]=="music"&&layoutRead.Settings.DashboardLayout[0]=="music","Moved dashboard widget survives a settings reload");
+                dashboard.MoveCard("music","system");
+            }
             Check(read.GetProfile("verificationprofile")?.OverlayEnabled==false,"Profile round trip / case-insensitive lookup");
             Check(read.Sessions.Count>0&&double.IsNaN(read.Sessions.Last().GpuTempAvg),"Unavailable session metric round trip");
             Check(read.Sessions.Last().CpuTempAvg.Equals(App.Monitor.LastSample.CpuTempC),"CPU temperature session round trip");
