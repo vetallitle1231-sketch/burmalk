@@ -74,8 +74,6 @@ function rotate(value){angle=Math.max(-55,Math.min(55,Number(value)));model.styl
  stage.addEventListener("pointermove",e=>{if(drag&&Math.abs(e.clientX-drag.x)>=Math.abs(e.clientY-drag.y))rotate(drag.angle+(e.clientX-drag.x)*.4);});
  stage.addEventListener("pointerup",()=>{drag=null;});stage.addEventListener("pointercancel",()=>{drag=null;});
  stage.addEventListener("keydown",e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();rotate(angle+(e.key==="ArrowRight"?5:-5));}});
-const heroFrame=document.getElementById("hero-frame");
-if(window.matchMedia("(hover: hover) and (pointer: fine)").matches&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches){heroFrame.addEventListener("pointermove",e=>{const r=heroFrame.getBoundingClientRect();const x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;heroFrame.style.transform=`rotateY(${-8+x*6}deg) rotateX(${3-y*5}deg) rotateZ(-1deg)`;});heroFrame.addEventListener("pointerleave",()=>{heroFrame.style.transform="";});}
 if ("IntersectionObserver" in window) {
  const modelObserver = new IntersectionObserver(entries => {
   entries.forEach(entry => entry.target.classList.toggle("model-active", entry.isIntersecting));
