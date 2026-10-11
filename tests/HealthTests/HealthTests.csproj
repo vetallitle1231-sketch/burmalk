@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Burmalk/Services/HealthAssessment.cs" Link="HealthAssessment.cs" />
+    <Compile Include="../../src/Burmalk/Models/Sample.cs" Link="Sample.cs" />
+    <Compile Include="../../src/Burmalk/Models/StorageDrive.cs" Link="StorageDrive.cs" />
+  </ItemGroup>
+</Project>

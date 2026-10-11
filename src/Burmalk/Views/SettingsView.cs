@@ -24,7 +24,9 @@ namespace Burmalk.Views
             _dim=new Slider {Minimum=0.1,Maximum=0.9,Value=s.BackgroundDim,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,Width=300};
             _photo.Text=string.IsNullOrEmpty(s.BackgroundImage)?"No custom photo selected":string.IsNullOrEmpty(s.BackgroundImageName)?System.IO.Path.GetFileName(s.BackgroundImage):s.BackgroundImageName;
             UpdatePhotoPreview();
-            root.Children.Add(ViewUi.Panel("Appearance",ViewUi.Text("Color theme / wallpaper"),_theme,_compact,ViewUi.Text("Wallpaper dimming"),_dim,ViewUi.Button("Choose photo from PC",ChoosePhoto),_photo,_photoPreview,ViewUi.Button("Remove wallpaper",RemoveWallpaper),ViewUi.Button("Apply appearance",ApplyAppearance)));
+            var signature = ViewUi.Button("Применить фирменную тему Burmalk", () => { _theme.SelectedItem = "Burmalk"; ApplyAppearance(); });
+            signature.SetResourceReference(Button.BackgroundProperty, "Accent"); signature.SetResourceReference(Button.ForegroundProperty, "AccentInk");
+            root.Children.Add(ViewUi.Panel("Burmalk · оформление",ViewUi.Text("Фирменная палитра: тёмно-синий, фиолетовый, чёрный и бирюзовый с мягким градиентом. Можно выбрать другую тему или своё фото."),signature,ViewUi.Text("Color theme / wallpaper"),_theme,_compact,ViewUi.Text("Wallpaper dimming"),_dim,ViewUi.Button("Choose photo from PC",ChoosePhoto),_photo,_photoPreview,ViewUi.Button("Remove wallpaper",RemoveWallpaper),ViewUi.Button("Apply appearance",ApplyAppearance)));
             _interval=Input(s.UpdateIntervalMs.ToString()); _history=Input(s.GraphHistorySeconds.ToString());
             _sensors=Check("Enable CPU sensors on startup · Windows permission required",s.CpuSensorsEnabled);
             root.Children.Add(ViewUi.Panel("Monitoring",ViewUi.Text("Update interval (300–10000 ms)"),_interval,ViewUi.Text("Graph history (10–3600 seconds)"),_history));
@@ -49,8 +51,12 @@ namespace Burmalk.Views
             App.Store.Settings.BackgroundImage=imported;App.Store.Settings.BackgroundImageName=System.IO.Path.GetFileName(file);_photo.Text=App.Store.Settings.BackgroundImageName;
             _photo.ToolTip=file;_theme.SelectedItem="Custom photo";UpdatePhotoPreview();ApplyAppearance();
         }
-        private void UpdatePhotoPreview()=>_photoPreview.Source=Appearance.LoadImage(new Burmalk.Models.AppSettings{Theme="Custom photo",BackgroundImage=App.Store.Settings.BackgroundImage});
-        private void RemoveWallpaper(){App.Store.Settings.BackgroundImage="";App.Store.Settings.BackgroundImageName="";_photo.Text="No custom photo selected";_photo.ToolTip=null;_photoPreview.Source=null;_theme.SelectedItem="Dark";ApplyAppearance();}
+        private void UpdatePhotoPreview()
+        {
+            _photoPreview.Source=Appearance.LoadImage(new Burmalk.Models.AppSettings{Theme="Custom photo",BackgroundImage=App.Store.Settings.BackgroundImage});
+            _photoPreview.Visibility = _photoPreview.Source == null ? Visibility.Collapsed : Visibility.Visible;
+        }
+        private void RemoveWallpaper(){App.Store.Settings.BackgroundImage="";App.Store.Settings.BackgroundImageName="";_photo.Text="No custom photo selected";_photo.ToolTip=null;UpdatePhotoPreview();_theme.SelectedItem="Burmalk";ApplyAppearance();}
         private void ChoosePhoto()
         {
             var dialog=new Microsoft.Win32.OpenFileDialog {Filter="Images|*.png;*.jpg;*.jpeg;*.bmp;*.webp;*.gif",Title="Choose Burmalk wallpaper"};

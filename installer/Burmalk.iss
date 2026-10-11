@@ -1,12 +1,15 @@
-#define AppVersion "1.1.7"
+#define AppVersion "1.1.8"
+#ifndef PublishDir
+  #define PublishDir "..\.build\publish-v1.1.8"
+#endif
 [Setup]
-AppId=Burmalk.Monitoring.App
-AppName=Burmalk
+AppId=Burmalk.Experimental.App
+AppName=Burmalk Experimental
 AppVersion={#AppVersion}
-AppVerName=Burmalk {#AppVersion}
+AppVerName=Burmalk {#AppVersion} Experimental
 AppPublisher=Burmalk
-DefaultDirName={localappdata}\Programs\Burmalk
-DefaultGroupName=Burmalk
+DefaultDirName={localappdata}\Programs\Burmalk Experimental
+DefaultGroupName=Burmalk Experimental
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -22,7 +25,7 @@ Compression=lzma2/normal
 SolidCompression=yes
 CloseApplications=yes
 RestartApplications=no
-UninstallDisplayName=Burmalk
+UninstallDisplayName=Burmalk Experimental {#AppVersion}
 VersionInfoProductName=Burmalk
 VersionInfoDescription=Burmalk Setup
 VersionInfoProductVersion={#AppVersion}
@@ -32,14 +35,14 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "..\.build\publish-v1.1.7\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PublishDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\.build\tools\PawnIO_setup.exe"; DestDir: "{app}\Support"; Flags: ignoreversion
 Source: "..\docs\CPU-SENSORS.txt"; DestDir: "{app}\Support"; Flags: ignoreversion
 
 [Icons]
-Name: "{userdesktop}\Burmalk"; Filename: "{app}\Burmalk.exe"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Monitoring.App"
-Name: "{userprograms}\Burmalk"; Filename: "{app}\Burmalk.exe"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Monitoring.App"
+Name: "{userdesktop}\Burmalk Experimental 1.1.8"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
+Name: "{userprograms}\Burmalk Experimental 1.1.8"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
 
 [Run]
-Filename: "{app}\Burmalk.exe"; Description: "{cm:LaunchProgram,Burmalk}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; Description: "Запустить Burmalk экспериментальную версию"; Flags: nowait postinstall skipifsilent
 

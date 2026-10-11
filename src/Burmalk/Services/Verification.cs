@@ -44,14 +44,57 @@ namespace Burmalk.Services
         public static void Interact(UserControl view,string page)
         {
             if(DirectoryPath==null)return;
-            if(page=="Benchmark")Click(view,"Run short");
+            // Long stress tests are opt-in and must never start during the UI smoke test.
             if(page=="Settings")Click(view,"Save settings");
+            if (page == "System Health" && view is Burmalk.Views.HealthView health)
+            {
+                // Presentation fixtures use synthetic readings and never change hardware.
+                foreach (var temperature in new[] { 45, 72, 82, 92 })
+                {
+                    var fixture = new Sample { TimestampUtc = DateTime.UtcNow.Ticks, CpuTempC = temperature, GpuTempC = 40, RamPercent = 35, GpuVramUsedGb = 3, GpuVramTotalGb = 12 };
+                    var report = HealthAssessment.Evaluate(fixture, new[] { new StorageDrive { Letter = "C:", TotalGb = 100, FreeGb = 50, UsedPercent = 50 } }, DateTime.UtcNow.Ticks);
+                    health.Render(report); Capture(Application.Current.MainWindow, "Health-" + report.Level);
+                }
+                health.Refresh();
+            }
+            if (page == "CPU")
+            {
+                var fan = Find<Burmalk.Views.CpuFanControlPanel>(view);
+                Check(fan != null && Count<Slider>(fan) == 1 && Count<ComboBox>(fan) == 0,
+                    "CPU cooling exposes one speed slider and no motherboard channel lists on the main page");
+                if (!CpuSensorAccess.IsAdministrator && fan != null)
+                    Check(Find<Slider>(fan)?.IsEnabled == false, "Unknown CPU fan cannot be controlled through a guessed channel");
+            }
+            if (page == "GPU")
+            {
+                string expected = "Частота ядра GPU: " + Burmalk.Views.MetricView.Number(App.Monitor.LastSample.GpuClockMhz, "MHz");
+                Check(ContainsText(view, expected), "GPU header shows graphics clock rather than the memory clock");
+            }
+            if (page == "OVERCLOCK" && view is Burmalk.Views.OverclockView overclock)
+            {
+                Check(!overclock.Accepted, "Overclock tab starts behind the consent gate");
+                Capture(Application.Current.MainWindow, "OVERCLOCK-warning");
+                Click(view, "Я согласен");
+                Check(!overclock.Accepted, "Overclock cannot open without a checked consent box");
+                var consent = Find<CheckBox>(view);
+                if (consent != null) consent.IsChecked = true;
+                Click(view, "Я согласен");
+                Check(overclock.Accepted, "Consent opens overclock settings without applying hardware changes");
+                Capture(Application.Current.MainWindow, "OVERCLOCK-controls");
+            }
         }
         private static bool Click(DependencyObject root,string text)
         {
             if(root is Button button && button.Content is string caption && caption.StartsWith(text))
             {button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));return true;}
             for(int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)if(Click(VisualTreeHelper.GetChild(root,i),text))return true;
+            return false;
+        }
+        private static bool ContainsText(DependencyObject root, string text)
+        {
+            if (root is TextBlock label && label.Text.Contains(text, StringComparison.Ordinal)) return true;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+                if (ContainsText(VisualTreeHelper.GetChild(root, i), text)) return true;
             return false;
         }
         private static T Find<T>(DependencyObject root) where T : DependencyObject
@@ -64,6 +107,12 @@ namespace Burmalk.Services
             }
             return null;
         }
+        private static int Count<T>(DependencyObject root) where T : DependencyObject
+        {
+            int count = root is T ? 1 : 0;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++) count += Count<T>(VisualTreeHelper.GetChild(root, i));
+            return count;
+        }
         public static void Complete()
         {
             if(DirectoryPath==null)return;
@@ -71,10 +120,21 @@ namespace Burmalk.Services
             var values=new double[3];history.Snapshot(values);
             Check(double.IsNaN(values[0])&&values[1]==20&&values[2]==30,"History must preserve missing intervals and ring order");
             var store=new DataStore(Path.Combine(DirectoryPath,"persistence-test"));store.Load();store.Settings.UpdateIntervalMs=1700;
+            store.Settings.DashboardVisible=new[]{"cpu","music"};store.Settings.StartWithWindows=true;store.Settings.GameLibraryPaths=new[]{System.IO.Path.Combine(DirectoryPath,"sample-game.exe")};
+            store.Settings.CpuFanBoardId = "board-fixture"; store.Settings.CpuFanControlId = "pwm2"; store.Settings.CpuFanRpmSensorId = "rpm4";
             store.SaveProfile(new GameProfile{GameName="VerificationProfile",OverlayEnabled=false});
             store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN,CpuTempAvg=App.Monitor.LastSample.CpuTempC});store.Save();
             var read=new DataStore(store.RootDir);read.Load();
             Check(read.Settings.UpdateIntervalMs==1700,"Settings round trip");
+            Check(read.Settings.CpuFanBoardId == "board-fixture" && read.Settings.CpuFanControlId == "pwm2" && read.Settings.CpuFanRpmSensorId == "rpm4", "CPU fan PWM and RPM identities survive settings reload without applying a fan speed");
+            Check(read.Settings.DashboardVisible.Length==2&&read.Settings.DashboardVisible[1]=="music"&&read.Settings.StartWithWindows&&read.Settings.GameLibraryPaths.Length==1,"Experimental dashboard, startup, and game-list settings round trip");
+            string gameRoot=Path.Combine(DirectoryPath,"game-library-fixture","Counter-Strike Global Offensive");
+            string gameBin=Path.Combine(gameRoot,"game","bin","win64");Directory.CreateDirectory(gameBin);
+            File.WriteAllBytes(Path.Combine(gameBin,"cs2.exe"),new byte[1]);File.WriteAllBytes(Path.Combine(gameBin,"console2.exe"),new byte[2048]);
+            Check(Path.GetFileName(GameLibraryService.FindGameExecutable(gameRoot,"Counter-Strike Global Offensive"))=="cs2.exe","Steam game library selects the Counter-Strike game executable, not the console helper");
+            Check(GameIconService.Get(new LibraryGame { Executable = Path.Combine(gameBin, "cs2.exe") }) != null, "A game without embedded artwork receives a visible fallback icon");
+            Check(GameIconService.Get(new LibraryGame { Executable = Environment.ProcessPath }) is BitmapSource, "Executable game icons are extracted as real artwork");
+            Check(GameLibraryService.IsToolEntry("ShareX") && !GameLibraryService.IsToolEntry("Dota 2"), "Steam utilities are not presented as detected games");
             Check(NowPlayingService.SourceName("Spotify.exe")=="Spotify"&&
                   NowPlayingService.SourceName("Chrome._crx_eikjhbkpemcmdeeeamdpkgabmk")=="SoundCloud"&&
                   NowPlayingService.SourceName("Chrome.exe")==null,"Music sources are identified without claiming unrelated browser audio");
@@ -86,6 +146,14 @@ namespace Burmalk.Services
                 var layoutRead=new DataStore(App.Store.RootDir);layoutRead.Load();
                 Check(dashboard.CurrentOrder[0]=="music"&&layoutRead.Settings.DashboardLayout[0]=="music","Moved dashboard widget survives a settings reload");
                 dashboard.MoveCard("music","system");
+                dashboard.MoveCardTo("music", 137, 319);
+                var freeLayoutRead = new DataStore(App.Store.RootDir); freeLayoutRead.Load();
+                Check(freeLayoutRead.Settings.DashboardPositions.TryGetValue("music", out var freePosition) && freePosition.X == 137 && freePosition.Y == 319,
+                    "Free dashboard coordinates survive a settings reload without grid snapping");
+                dashboard.MoveCardTo("music", -10, -20);
+                Check(App.Store.Settings.DashboardPositions["music"].X == 0 && App.Store.Settings.DashboardPositions["music"].Y == 0,
+                    "Dashboard cards cannot be dragged out of reach above or to the left");
+                dashboard.MoveCardTo("music", 332, 504);
             }
             Check(read.GetProfile("verificationprofile")?.OverlayEnabled==false,"Profile round trip / case-insensitive lookup");
             Check(read.Sessions.Count>0&&double.IsNaN(read.Sessions.Last().GpuTempAvg),"Unavailable session metric round trip");
@@ -97,7 +165,7 @@ namespace Burmalk.Services
             var analysis=StorageAnalyzer.Scan(Path.Combine(DirectoryPath,"persistence-test"),System.Threading.CancellationToken.None);
             Check(analysis.Files>=3&&analysis.Largest.Count>0,"Storage analyzer reads actual saved files");
             Check(File.Exists(Path.Combine(App.Store.RootDir,"settings.json")),"Settings save button creates a real file");
-            Check(Burmalk.Views.BenchmarkView.LastReport!=null,"Benchmark completed");
+            Check(App.SelfTestMode.StartsWith("navigate",StringComparison.Ordinal)||Burmalk.Views.BenchmarkView.LastReport!=null,"Benchmark remains opt-in during UI verification");
             Check(double.IsFinite(App.Monitor.LastSample.CpuGhz)&&App.Monitor.LastSample.CpuGhz>0,"Real CPU frequency available");
             if(RequireCpuTemperature)Check(double.IsFinite(App.Monitor.LastSample.CpuTempC)&&App.Monitor.LastSample.CpuTempC>0&&App.Monitor.LastSample.CpuTempC<150,"Real CPU temperature available");
             var original=App.Store.Settings.Theme;

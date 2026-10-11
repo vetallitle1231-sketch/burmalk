@@ -96,7 +96,7 @@ namespace Burmalk.Controls
                 for (int row = 0; row <= 4; row++)
                 {
                     double y = 3 + gh * row / 4;
-                    dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(0x24,0x36,0x52)), 0.5), new Point(pad,y), new Point(w-8,y));
+                    dc.DrawLine(new Pen(Application.Current.TryFindResource("BorderColor") as Brush ?? Brushes.Gray, 0.5), new Point(pad,y), new Point(w-8,y));
                     DrawLabel(dc, (top * (4-row)/4).ToString("0.#") + _suffix, 0, y-6);
                 }
                 DrawLabel(dc, "−" + TimeSpan.FromSeconds(duration).ToString(@"mm\:ss"), pad, gh+7);

@@ -21,10 +21,10 @@ namespace Burmalk.Views
         {
             var b = new Button { Content = text }; b.Click += (s,e) => action(); return b;
         }
-        public static Color Blue = Color.FromRgb(0x12,0x8A,0xFF);
-        public static Color Green = Color.FromRgb(0,0xC8,0xA4);
-        public static Color Purple = Color.FromRgb(0xAA,0x4B,0xFF);
-        public static Color Gold = Color.FromRgb(0xFF,0xB7,0x35);
+        public static Color Blue = Color.FromRgb(0x83,0xB7,0xEF);
+        public static Color Green = Color.FromRgb(0x5B,0xD6,0xB2);
+        public static Color Purple = Color.FromRgb(0xBA,0xA4,0xEB);
+        public static Color Gold = Color.FromRgb(0xE4,0xBC,0x78);
     }
 
     public class MetricView : UserControl, IRefreshable
@@ -34,10 +34,12 @@ namespace Burmalk.Views
         private readonly List<LineGraph> _graphs = new List<LineGraph>();
         private readonly List<Action<Sample>> _updates = new List<Action<Sample>>();
         private readonly string _kind;
+        private readonly FanControlPanel _fanPanel;
         public MetricView(string kind)
         {
             _kind = kind; Content = _root;
             _root.Children.Add(ViewUi.Panel(kind + " · live monitoring", _info));
+            if (kind == "CPU" || kind == "GPU") { _fanPanel = new FanControlPanel(kind); _root.Children.Add(_fanPanel); }
             var h = App.Monitor.Hub;
             if (kind == "CPU")
             {
@@ -51,12 +53,17 @@ namespace Burmalk.Views
                 Add("Utilization", h.GpuPercent, s=>Fmt.Pct(s.GpuPercent), "%",100,ViewUi.Green);
                 Add("Temperature",h.GpuTempC,s=>Fmt.C(s.GpuTempC),"°C",100,ViewUi.Gold);
                 Add("VRAM",h.GpuVramGb,s=>Fmt.Gb(s.GpuVramUsedGb)+" / "+Fmt.Gb(s.GpuVramTotalGb),"GiB",-1,ViewUi.Purple);
-                Add("Graphics clock",h.GpuClockMhz,s=>Number(s.GpuClockMhz,"MHz"),"MHz",-1,ViewUi.Green);
+                Add("Частота ядра GPU · NVIDIA",h.GpuClockMhz,s=>Number(s.GpuClockMhz,"MHz"),"MHz",-1,ViewUi.Green);
+                var memoryClock = ViewUi.Text("Недоступно", "BigValue");
+                _updates.Add(s => memoryClock.Text = Number(s.GpuMemClockMhz, "MHz"));
+                _root.Children.Add(ViewUi.Panel("Видеопамять · частота по шкале NVIDIA SMI", memoryClock,
+                    ViewUi.Text("Источник: clocks.current.memory. Это отдельный показатель памяти, а не частота ядра GPU. Разные программы могут показывать память по другой шкале.")));
                 Add("Power",h.GpuPowerW,s=>Fmt.W(s.GpuPowerW),"W",-1,ViewUi.Gold);
             }
             else if (kind == "RAM") Add("Used memory",h.RamUsedGb,s=>Fmt.Gb(s.RamUsedGb),"GiB",-1,ViewUi.Purple);
             else if (kind == "Disk activity")
             {
+                _root.Children.Add(new DiskSpeedPanel());
                 Add("Aggregate activity",h.DiskActivePercent,s=>Fmt.Pct(s.DiskActivePercent),"%",100,ViewUi.Gold);
                 Add("Read",h.DiskReadKBps,s=>Fmt.Rate(s.DiskReadKBps),"KiB/s",-1,ViewUi.Green);
                 Add("Write",h.DiskWriteKBps,s=>Fmt.Rate(s.DiskWriteKBps),"KiB/s",-1,ViewUi.Gold);
@@ -75,26 +82,17 @@ namespace Burmalk.Views
         {
             var m=App.Monitor; var s=m.LastSample; var hw=m.Hardware.Snapshot;
             if (_kind=="CPU") _info.Text=hw.Cpu.Model+" · "+hw.Cpu.Cores+" cores · "+hw.Cpu.Threads+" threads · "+hw.Cpu.Architecture+"\n"+m.CpuSensors.Status+"\nFrequency: "+m.CpuSensors.FrequencySource;
-            else if (_kind=="GPU") _info.Text=m.Gpu.Last.Name+" · driver "+m.Gpu.Last.DriverVersion+" · memory clock "+Number(s.GpuMemClockMhz,"MHz");
+            else if (_kind=="GPU")
+            {
+                _info.Text = m.Gpu.Last.Name + " · driver " + m.Gpu.Last.DriverVersion + "\nЧастота ядра GPU: " + Number(s.GpuClockMhz, "MHz");
+                _info.ToolTip = "Ядро: clocks.current.graphics. Память: clocks.current.memory, в единицах NVIDIA SMI. Частоты памяти в других программах могут использовать другую шкалу; это не частота ядра. Значения не делятся на неподтверждённый коэффициент.";
+            }
             else if (_kind=="RAM") _info.Text="Total "+Fmt.Gb(hw.Ram.TotalGb)+" · Available "+Fmt.Gb(hw.Ram.TotalGb>0 ? hw.Ram.TotalGb-s.RamUsedGb : double.NaN)+" · "+hw.Ram.Modules.Count+" modules · "+(hw.Ram.MaxSpeedMhz>0 ? hw.Ram.MaxSpeedMhz+" MT/s" : "Unavailable");
             else _info.Text="All physical disks · read and write counters · recent history";
             foreach(var update in _updates) update(s);
             foreach(var graph in _graphs) graph.InvalidateVisual();
+            _fanPanel?.Refresh();
         }
     }
 
-    public class HealthView : UserControl,IRefreshable
-    {
-        private readonly TextBlock _text=ViewUi.Text("");
-        public HealthView() { Content=ViewUi.Panel("System health",_text); Refresh(); }
-        public void Refresh()
-        {
-            var s=App.Monitor.LastSample; var total=App.Monitor.Hardware.Snapshot.Ram.TotalGb;
-            _text.Text="CPU temperature: "+Fmt.C(s.CpuTempC)+"\nGPU temperature: "+Fmt.C(s.GpuTempC)+"\nRAM utilization: "+Fmt.Pct(total>0?s.RamUsedGb/total*100:double.NaN)+"\nNetwork: "+(System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()?"Connected":"Disconnected")+"\nDrive SMART: Unavailable\n\n";
-            foreach (var d in App.Monitor.Storage.RefreshSpace()) _text.Text+=d.Letter+" · "+d.FreeGb+" GB free · "+(d.UsedPercent>90?"Low free space":"Space available")+"\n";
-            _text.Text+="\nUnavailable sensors are not included in a health score.";
-        }
-    }
 }
-
-

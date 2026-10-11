@@ -45,7 +45,8 @@ namespace Burmalk.Services
         }
         public static bool RestartElevated()
         {
-            var child=Process.Start(new ProcessStartInfo(Environment.ProcessPath,"--wait-for-process "+Environment.ProcessId){UseShellExecute=true,Verb="runas"});
+            string profile = App.IsExperimentalProfile ? " --profile-experimental" : "";
+            var child=Process.Start(new ProcessStartInfo(Environment.ProcessPath,"--wait-for-process "+Environment.ProcessId + profile){UseShellExecute=true,Verb="runas"});
             if(child==null)return false;
             Application.Current.Shutdown();return true;
         }

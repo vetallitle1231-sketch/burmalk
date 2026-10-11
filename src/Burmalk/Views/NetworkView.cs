@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System;
+using System.Threading;
 using Burmalk.Models;
 using Burmalk.Services;
 
@@ -13,6 +15,11 @@ namespace Burmalk.Views
         private readonly TextBlock _downLabel, _upLabel;
         private Controls.LineGraph _downGraph,_upGraph;
         private System.DateTime _lastAdapters=System.DateTime.MinValue;
+        private CancellationTokenSource _speedTest;
+        private readonly TextBlock _speedStatus = ViewUi.Text("Нажмите «Проверить скорость», чтобы начать.");
+        private readonly TextBlock _speedResult = ViewUi.Text("↓ — Мбит/с     ↑ — Мбит/с", "BigValue");
+        private Button _speedStart, _speedStop;
+        private readonly ComboBox _speedServer = new ComboBox { MinWidth = 260, HorizontalAlignment = HorizontalAlignment.Left };
 
         public NetworkView()
         {
@@ -20,6 +27,16 @@ namespace Burmalk.Views
             _net = App.Monitor != null ? App.Monitor.Network : null;
 
             var root = new StackPanel();
+            _speedStart = ViewUi.Button("Проверить скорость интернета", () => RunSpeedTest());
+            _speedStop = ViewUi.Button("Остановить тест", () => _speedTest?.Cancel());
+            _speedStop.IsEnabled = false;
+            var actions = new WrapPanel(); actions.Children.Add(_speedStart); actions.Children.Add(_speedStop);
+            foreach (string option in new[] { "Автоматически · с резервным сервером", "Cloudflare", "LibreSpeed · Прага" }) _speedServer.Items.Add(option);
+            _speedServer.SelectedIndex = 0;
+            root.Children.Add(ViewUi.Panel("СКОРОСТЬ ИНТЕРНЕТА", _speedResult,
+                ViewUi.Text("Загрузка, отдача и задержка HTTP. До 128 МиБ трафика на сервер; при переключении на резервный — до 256 МиБ."), _speedServer,
+                actions, _speedStatus));
+            Unloaded += (s, e) => _speedTest?.Cancel();
 
             // live rates row
             var hub = (App.Monitor != null) ? App.Monitor.Hub : null;
@@ -73,6 +90,31 @@ namespace Burmalk.Views
             RefreshAdapters();
             Refresh();
         }
+
+        private async void RunSpeedTest()
+        {
+            if (_speedTest != null) return;
+            _speedTest = new CancellationTokenSource();
+            _speedStart.IsEnabled = false; _speedStop.IsEnabled = true;
+            _speedServer.IsEnabled = false;
+            _speedResult.Text = "↓ — Мбит/с     ↑ — Мбит/с";
+            try
+            {
+                var progress = new Progress<InternetSpeedProgress>(p =>
+                { if (_speedTest != null) _speedStatus.Text = p.Phase + (p.Mbps > 0 ? "  " + p.Mbps.ToString("0.0") + " Мбит/с" : ""); });
+                string server = _speedServer.SelectedIndex == 1 ? "Cloudflare" : _speedServer.SelectedIndex == 2 ? "LibreSpeed" : "Auto";
+                var result = await InternetSpeedTest.RunAsync(_speedTest.Token, progress, server: server);
+                _speedResult.Text = "↓ " + Rate(result.DownloadMbps) + "     ↑ " + Rate(result.UploadMbps);
+                _speedStatus.Text = (result.Warning == null ? "Готово" : "Частично завершено") + " · " + DateTime.Now.ToString("HH:mm") + " · " + result.Server + " · задержка HTTP " + result.LatencyMs.ToString("0") + " мс · джиттер " + result.JitterMs.ToString("0") +
+                    " мс\nТрафик: " + (result.TrafficBytes / 1048576.0).ToString("0.0") + " МиБ. Скорость зависит от Wi-Fi, сервера и других загрузок." +
+                    (result.Warning == null ? "" : "\n" + result.Warning);
+            }
+            catch (OperationCanceledException) { _speedStatus.Text = _speedTest.IsCancellationRequested ? "Тест остановлен." : "Истекло время ожидания. Повторите тест."; }
+            catch (Exception ex) { _speedStatus.Text = "Не удалось завершить тест: " + ex.Message; }
+            finally { _speedTest.Dispose(); _speedTest = null; _speedStart.IsEnabled = _speedServer.IsEnabled = true; _speedStop.IsEnabled = false; }
+        }
+
+        private static string Rate(double value) => double.IsFinite(value) ? value.ToString("0.0") + " Мбит/с" : "недоступно";
 
         private void RefreshAdapters()
         {

@@ -1,5 +1,9 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Linq;
+using System.Collections.Generic;
+using System.Windows.Media;
 using Burmalk.Services;
 
 namespace Burmalk.Views
@@ -16,6 +20,11 @@ namespace Burmalk.Views
         private readonly TextBlock _cpu = Big("—");
         private readonly TextBlock _ctemp = Big("—");
         private readonly TextBlock _ram = Big("—");
+        private readonly WrapPanel _library = new WrapPanel();
+        private readonly TextBox _search = new TextBox { MinWidth = 240, ToolTip = "Поиск по названию игры", Margin = new Thickness(0, 0, 8, 8) };
+        private List<LibraryGame> _games = new List<LibraryGame>();
+        private readonly TextBlock _libraryStatus = ViewUi.Text("Сканирование Steam и ярлыков игр…");
+        private bool _scanning;
 
         public GamesView()
         {
@@ -33,7 +42,18 @@ namespace Burmalk.Views
         {
             var root = new StackPanel();
 
-            root.Children.Add(Panel("LIVE GAME", new StackPanel
+            var libraryActions = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+            libraryActions.Children.Add(ViewUi.Button("Обновить список игр", ScanLibrary));
+            libraryActions.Children.Add(ViewUi.Button("Добавить игру (.exe)", AddGame));
+            var libraryBody = new StackPanel();
+            libraryBody.Children.Add(_libraryStatus); libraryBody.Children.Add(libraryActions);
+            libraryBody.Children.Add(ViewUi.Text("Поиск игры")); libraryBody.Children.Add(_search);
+            _search.TextChanged += (_, _) => RenderLibrary();
+            libraryBody.Children.Add(new ScrollViewer { Content = _library, Height = 430, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled });
+            root.Children.Add(Panel("БИБЛИОТЕКА ИГР", libraryBody));
+
+            var session = new StackPanel();
+            session.Children.Add(Panel("LIVE GAME", new StackPanel
             {
                 Margin = new Thickness(0, 0, 0, 8),
                 Children =
@@ -56,9 +76,65 @@ namespace Burmalk.Views
             Cell(grid, "RAM", _ram, 0, 2);
             Cell(grid, "CPU TEMP", _ctemp, 1, 2);
 
-            root.Children.Add(Panel("SYSTEM STATS WHILE GAMING", grid));
+            session.Children.Add(Panel("SYSTEM STATS WHILE GAMING", grid));
+            root.Children.Add(new Expander { Header = "Текущая игра · показатели системы", Content = session, Margin = new Thickness(0, 8, 0, 8) });
+            ScanLibrary();
 
             return root;
+        }
+
+        private async void ScanLibrary()
+        {
+            if (_scanning) return;
+            _scanning = true;
+            _libraryStatus.Text = "Ищу игры в Steam и ярлыки меню «Пуск»…";
+            try
+            {
+                _games = await GameLibraryService.ScanAsync(App.Store.Settings.GameLibraryPaths);
+                RenderLibrary();
+            }
+            catch (Exception ex) { _libraryStatus.Text = "Не удалось просканировать игры: " + ex.Message; ErrorLog.Write("Game library: " + ex); }
+            finally { _scanning = false; }
+        }
+
+        private void RenderLibrary()
+        {
+            _library.Children.Clear();
+            var games = _games.Where(g => g.Name.Contains(_search.Text.Trim(), StringComparison.CurrentCultureIgnoreCase)).ToArray();
+            foreach (var game in games)
+            {
+                var tile = new StackPanel();
+                tile.Children.Add(new Image { Source = GameIconService.Get(game), Width = 64, Height = 64, Stretch = Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 12) });
+                tile.Children.Add(new TextBlock { Text = game.Name, FontSize = 17, FontWeight = FontWeights.SemiBold, Height = 48, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, ToolTip = game.Name });
+                var buttons = new WrapPanel();
+                buttons.Children.Add(ViewUi.Button("▶ Запустить", () =>
+                {
+                    try { GameLibraryService.Launch(game); }
+                    catch (Exception ex) { MessageBox.Show(Window.GetWindow(this), ex.Message, "Burmalk · игры"); }
+                }));
+                if ((App.Store.Settings.GameLibraryPaths ?? Array.Empty<string>()).Contains(game.Executable, StringComparer.OrdinalIgnoreCase))
+                    buttons.Children.Add(ViewUi.Button("Убрать", () =>
+                    {
+                        App.Store.Settings.GameLibraryPaths = App.Store.Settings.GameLibraryPaths.Where(p => !string.Equals(p, game.Executable, StringComparison.OrdinalIgnoreCase)).ToArray();
+                        App.Store.Save(); ScanLibrary();
+                    }));
+                tile.Children.Add(buttons);
+                var card = new Border { Child = tile, Width = 258, MinHeight = 210, Padding = new Thickness(16), Margin = new Thickness(0, 0, 12, 12), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), ToolTip = game.Executable };
+                card.SetResourceReference(Border.BackgroundProperty, "ControlBg"); card.SetResourceReference(Border.BorderBrushProperty, "BorderColor");
+                _library.Children.Add(card);
+            }
+            _libraryStatus.Text = _games.Count == 0 ? "Игры не найдены. Добавь файл .exe вручную." : "Найдено: " + _games.Count + " · показано: " + games.Length;
+        }
+
+        private void AddGame()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Исполняемый файл игры|*.exe", Title = "Добавить игру в библиотеку" };
+            if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+            var paths = (App.Store.Settings.GameLibraryPaths ?? System.Array.Empty<string>()).ToList();
+            if (!paths.Contains(dialog.FileName, System.StringComparer.OrdinalIgnoreCase)) paths.Add(dialog.FileName);
+            App.Store.Settings.GameLibraryPaths = paths.ToArray();
+            App.Store.Save();
+            ScanLibrary();
         }
 
         private static UIElement Label(string text, TextBlock value, double bottomMargin)

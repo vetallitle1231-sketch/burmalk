@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Burmalk/Services/TuningSession.cs" Link="TuningSession.cs" />
+    <Compile Include="../../src/Burmalk/Services/NvidiaTuning.cs" Link="NvidiaTuning.cs" />
+    <Compile Include="../../src/Burmalk/Services/CpuBoost.cs" Link="CpuBoost.cs" />
+    <Compile Include="../../src/Burmalk/Services/CpuFanBinding.cs" Link="CpuFanBinding.cs" />
+    <Compile Include="../../src/Burmalk/Services/GpuSampler.cs" Link="GpuSampler.cs" />
+    <Compile Include="../../src/Burmalk/Services/ErrorLog.cs" Link="ErrorLog.cs" />
+  </ItemGroup>
+</Project>

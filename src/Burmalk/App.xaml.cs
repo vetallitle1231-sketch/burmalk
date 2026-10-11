@@ -13,12 +13,15 @@ namespace Burmalk
         public static Services.DataStore Store { get; private set; }
         public static OllamaMonitor Ai { get; private set; }
         public static string SelfTestMode { get; private set; } = "";
+        public static bool IsExperimentalProfile { get; private set; }
+        internal static HardwareTuningService Tuning { get; private set; }
         private Mutex _instanceMutex;
         private bool _ownsInstance;
 
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            IsExperimentalProfile = Array.IndexOf(e.Args ?? Array.Empty<string>(), "--profile-experimental") >= 0;
             int previousIndex=Array.IndexOf(e.Args??Array.Empty<string>(),"--wait-for-process");
             if(previousIndex>=0&&previousIndex+1<e.Args.Length&&int.TryParse(e.Args[previousIndex+1],out int previousPid))
             {
@@ -68,8 +71,15 @@ namespace Burmalk
                 System.IO.Directory.CreateDirectory(Verification.DirectoryPath);
             }
 
-            Store = new Services.DataStore(Verification.DirectoryPath==null?null:System.IO.Path.Combine(Verification.DirectoryPath,"app-data"));
+            string dataRoot = Verification.DirectoryPath != null ? System.IO.Path.Combine(Verification.DirectoryPath, "app-data") :
+                IsExperimentalProfile ? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Burmalk-Experimental") : null;
+            Store = new Services.DataStore(dataRoot);
             Store.Load();
+            if(Verification.DirectoryPath==null)
+            {
+                try { StartupService.Apply(Store.Settings.StartWithWindows, IsExperimentalProfile); }
+                catch(Exception ex) { ErrorLog.Write("Startup setting: "+ex.Message); }
+            }
             if(Verification.DirectoryPath==null&&SelfTestMode==""&&Store.Settings.CpuSensorsEnabled&&!CpuSensorAccess.IsAdministrator)
             {
                 try{if(CpuSensorAccess.RestartElevated())return;}
@@ -95,8 +105,16 @@ namespace Burmalk
 
             Monitor = new SystemMonitor(Store);
             Monitor.Start();
+            Tuning = new HardwareTuningService();
 
             var window = new MainWindow();
+            if (Verification.DirectoryPath != null)
+            {
+                window.ShowActivated = false;
+                window.ShowInTaskbar = false;
+                window.WindowStartupLocation = WindowStartupLocation.Manual;
+                window.Left = -10000; window.Top = -10000;
+            }
 
             if (SelfTestMode.StartsWith("navigate"))
             {
@@ -116,6 +134,7 @@ namespace Burmalk
             if(Monitor==null){_instanceMutex?.Dispose();base.OnExit(e);return;}
             try { Services.GameService.Stop(); } catch { }
             try { Services.OverlayManager.Shutdown(); } catch { }
+            try { Tuning?.Dispose(); } catch { }
             try { Monitor.Dispose(); } catch { }
             try { Ai.Dispose(); } catch { }
             try { Store.Save(); } catch { }

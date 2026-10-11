@@ -92,7 +92,17 @@ namespace Burmalk.Services
                 }
                 if (string.IsNullOrWhiteSpace(line)) return Remember(s);
 
+                return Remember(ParseLine(line));
+            }
+        }
+
+        internal static GpuSample ParseLine(string line)
+        {
+                var s = new GpuSample();
+                if (string.IsNullOrWhiteSpace(line)) return s;
                 var parts = SplitCsv(line.Trim().Split((char)10)[0]);
+                // Reject malformed rows rather than shifting clocks into other columns.
+                if (parts.Length != 9) return s;
                 try
                 {
                     s.Name = Clean(parts[0]);
@@ -109,8 +119,7 @@ namespace Burmalk.Services
                 }
                 catch { /* keep prior value on partial parse */ }
 
-                return Remember(s);
-            }
+                return s;
         }
         private GpuSample Remember(GpuSample s)
         {
@@ -137,9 +146,9 @@ namespace Burmalk.Services
         {
             if (string.IsNullOrWhiteSpace(raw)) return double.NaN;
             double v;
-            if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
+            if (double.TryParse(raw, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out v))
-                return v;
+                return double.IsFinite(v) ? v : double.NaN;
             return double.NaN;
         }
 

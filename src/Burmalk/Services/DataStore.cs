@@ -53,13 +53,23 @@ namespace Burmalk.Services
                     }
                 }
                 Settings = ReadJson<AppSettings>(SettingsPath) ?? new AppSettings();
+                Settings.DashboardVisible ??= new AppSettings().DashboardVisible;
+                Settings.DashboardLayout ??= new AppSettings().DashboardLayout;
+                Settings.DashboardPositions ??= new Dictionary<string, DashboardPosition>();
+                foreach (var key in Settings.DashboardPositions.Keys.ToArray())
+                {
+                    var position = Settings.DashboardPositions[key];
+                    if (position == null || !double.IsFinite(position.X) || !double.IsFinite(position.Y)) Settings.DashboardPositions.Remove(key);
+                    else { position.X = Math.Clamp(position.X, 0, 10000); position.Y = Math.Clamp(position.Y, 0, 10000); }
+                }
+                Settings.GameLibraryPaths ??= Array.Empty<string>();
                 Sessions = ReadJson<List<GameSession>>(SessionsPath) ?? new List<GameSession>();
                 Profiles = ReadJson<Dictionary<string, GameProfile>>(ProfilesPath) ?? new Dictionary<string, GameProfile>();
                 Profiles = new Dictionary<string, GameProfile>(Profiles, StringComparer.OrdinalIgnoreCase);
                 Settings.UpdateIntervalMs = Math.Clamp(Settings.UpdateIntervalMs, 300, 10000);
                 Settings.GraphHistorySeconds = Math.Clamp(Settings.GraphHistorySeconds, 10, 3600);
                 Settings.OverlayRefreshMs = Math.Clamp(Settings.OverlayRefreshMs, 300, 10000);
-                if(!Appearance.Themes.Contains(Settings.Theme))Settings.Theme="Dark";
+                if(!Appearance.Themes.Contains(Settings.Theme))Settings.Theme="Burmalk";
                 Settings.BackgroundDim=double.IsFinite(Settings.BackgroundDim)?Math.Clamp(Settings.BackgroundDim,0.1,0.9):0.5;
             }
         }
