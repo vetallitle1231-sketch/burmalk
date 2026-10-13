@@ -48,6 +48,11 @@ namespace Burmalk.Services
             if(DirectoryPath==null)return;
             // Long stress tests are opt-in and must never start during the UI smoke test.
             if(page=="Settings")Click(view,"Save settings");
+            if (page == "Dashboard" && view is Burmalk.Views.DashboardView modelDashboard)
+            {
+                if (Array.IndexOf(modelDashboard.CurrentOrder, "pc3d") > Array.IndexOf(modelDashboard.CurrentOrder, "cpu")) modelDashboard.MoveCard("pc3d", "cpu");
+                Check(modelDashboard.CurrentOrder.Contains("pc3d"), "Rotatable PC model is a movable dashboard widget");
+            }
             if (page == "Dashboard" && view is Burmalk.Views.DashboardView rankedDashboard && App.Store.Performance != null && PassportService.CurrentRank().Confirmed)
             {
                 if (Array.IndexOf(rankedDashboard.CurrentOrder, "rank") > Array.IndexOf(rankedDashboard.CurrentOrder, "gpu")) rankedDashboard.MoveCard("rank", "gpu"); rankedDashboard.Refresh();
@@ -61,18 +66,31 @@ namespace Burmalk.Services
                 double before = pc3d.CameraDistance; pc3d.Zoom(-1); Check(pc3d.CameraDistance < before, "3D zoom changes camera distance");
                 for (int i = 0; i < 50; i++) pc3d.Zoom(-1);
                 Check(pc3d.CameraDistance == 7, "3D camera cannot pass into the chassis"); pc3d.ResetCamera(); pc3d.SelectPart("gpu");
+                var settings = App.Store.Settings; string oldChassis = settings.PcModelChassis, oldCooling = settings.PcModelCooling; bool oldReduced = settings.ReducedEffects;
+                settings.ReducedEffects = true; pc3d.ResetCamera();
+                foreach (var variant in new[] { ("Desktop", "Air"), ("Desktop", "Aio"), ("Laptop", "Air") })
+                {
+                    settings.PcModelChassis = variant.Item1; settings.PcModelCooling = variant.Item2; pc3d.Refresh();
+                    Check(pc3d.ModelVariant == variant.Item1 + "/" + variant.Item2, "3D chassis/cooling variant: " + pc3d.ModelVariant);
+                    if (variant.Item1 == "Laptop") { pc3d.SelectPart("cooling"); Check(ContainsText(pc3d, "Встроенная система охлаждения ноутбука"), "Laptop facts describe built-in cooling"); pc3d.SelectPart("gpu"); }
+                    Capture(Application.Current.MainWindow, "Model-" + variant.Item1 + "-" + variant.Item2);
+                }
+                settings.PcModelChassis = oldChassis; settings.PcModelCooling = oldCooling; settings.ReducedEffects = oldReduced; pc3d.Refresh();
             }
             if (page == "PC PASSPORT" && view is Burmalk.Views.PassportView passport)
             {
                 passport.Generate();
                 var p = PassportService.Create(true, "Pulse");
                 Check(p.OwnerLabel == "ТВОЙ ПК" && p.Sections.Count == 7, "Passport defaults to private, complete hardware categories");
+                Check(p.Sections[4].Lines.Count >= App.Monitor.Storage.PhysicalDrives.Count, "Every detected physical disk appears in the passport");
+                if (App.Monitor.Hardware.Snapshot.Ram.InstalledBytes > 0)
+                    Check(p.Sections[2].Lines[0].Contains(PassportService.Number(App.Monitor.Hardware.Snapshot.Ram.InstalledGb, "GiB")), "Passport shows installed module capacity rather than OS-visible RAM");
                 string serialized = JsonSerializer.Serialize(p, new JsonSerializerOptions { IncludeFields = true });
                 Check(!serialized.Contains(Environment.MachineName, StringComparison.OrdinalIgnoreCase), "Public passport excludes the machine name");
                 foreach (string style in new[] { "Pulse", "Aurora", "Graphite" })
                 {
                     p.Style = style;
-                    var card = PassportExport.Card(p, false); Check(card.PixelWidth == 1600 && card.PixelHeight == 1120, "Passport PNG dimensions: " + style);
+                    var card = PassportExport.Card(p, false); Check(card.PixelWidth == 1600 && card.PixelHeight >= 1120, "Passport PNG dimensions: " + style);
                     PassportExport.Png(card, Path.Combine(DirectoryPath, "Passport-" + style + ".png"));
                 }
                 PassportExport.Png(PassportExport.Card(p, true), Path.Combine(DirectoryPath, "Passport-social.png"));
@@ -167,9 +185,14 @@ namespace Burmalk.Services
             store.SaveProfile(new GameProfile{GameName="VerificationProfile",OverlayEnabled=false});
             store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN,CpuTempAvg=App.Monitor.LastSample.CpuTempC});store.Save();
             var read=new DataStore(store.RootDir);read.Load();
+            store.Settings.PcModelChassis = "Laptop"; store.Settings.PcModelCooling = "Aio"; store.Settings.PcWidgetYaw = 76; store.Settings.PcWidgetPitch = 28; store.Settings.PcWidgetDistance = 17; store.Save();
+            store.SaveDiskMeasurement(new DiskMeasurement { Root = "X:\\", PhysicalModel = "fixture disk", VolumeBytes = 100L * 1024 * 1024 * 1024, ReadMBps = 250, WriteMBps = 120, Bytes = 128L * 1024 * 1024, TestedUtc = DateTime.UtcNow });
+            var modelRead = new DataStore(store.RootDir); modelRead.Load();
+            Check(modelRead.Settings.PcModelChassis == "Laptop" && modelRead.Settings.PcModelCooling == "Aio" && modelRead.Settings.PcWidgetYaw == 76 && modelRead.Settings.PcWidgetPitch == 28 && modelRead.Settings.PcWidgetDistance == 17, "3D model type and widget camera survive restart");
+            Check(modelRead.DiskMeasurements.Count == 1 && modelRead.DiskMeasurements[0].PhysicalModel == "fixture disk" && modelRead.DiskMeasurements[0].ReadMBps == 250, "Saved disk measurements preserve drive identity and measured rates");
             var rankFixture = new PerformanceRecord { MethodVersion = RankMethod.Version, TestedUtc = DateTime.UtcNow, CpuModel = "fixture CPU", GpuModel = "fixture GPU", RamGb = 32,
                 CpuMillionOps = RankMethod.ReferenceCpu, GpuFps = RankMethod.ReferenceGpu, RamMegabytesPerSecond = RankMethod.ReferenceRam, CpuCompleted = true, GpuCompleted = true, RamCompleted = true, MemoryPassed = true,
-                CpuSeconds = 60, GpuSeconds = 120, MemoryBytesVerified = 128L * 1024 * 1024, RenderTier = 2, Status = "Fixture complete" };
+                CpuSeconds = 60, GpuSeconds = 120, MemoryBytesVerified = 128L * 1024 * 1024, RenderTier = 2, CpuWorkers = 16, GpuEngine = NativeGpuBenchmark.Engine, Status = "Fixture complete" };
             store.SavePerformance(rankFixture); store.Settings.ReducedEffects = true; store.Settings.PassportHidePersonal = true; store.Settings.PassportStyle = "Aurora"; store.Save();
             var persistedRank = new DataStore(store.RootDir); persistedRank.Load();
             Check(RankMethod.Evaluate(persistedRank.Performance).Name == "GOLD", "Confirmed rank survives reopening persisted data");
@@ -196,7 +219,7 @@ namespace Burmalk.Services
             {
                 dashboard.MoveCard("music","cpu");
                 var layoutRead=new DataStore(App.Store.RootDir);layoutRead.Load();
-                Check(dashboard.CurrentOrder[0]=="music"&&layoutRead.Settings.DashboardLayout[0]=="music","Moved dashboard widget survives a settings reload");
+                Check(Array.IndexOf(dashboard.CurrentOrder,"music") < Array.IndexOf(dashboard.CurrentOrder,"cpu") && dashboard.CurrentOrder.SequenceEqual(layoutRead.Settings.DashboardLayout),"Moved dashboard widget survives a settings reload");
                 dashboard.MoveCard("music","system");
                 dashboard.MoveCardTo("music", 137, 319);
                 var freeLayoutRead = new DataStore(App.Store.RootDir); freeLayoutRead.Load();
@@ -252,6 +275,7 @@ namespace Burmalk.Services
             Check(appearanceRead.Settings.Theme=="Custom photo"&&appearanceRead.Settings.CompactLayout&&File.Exists(appearanceRead.Settings.BackgroundImage),"Appearance survives restart");
             App.Store.Settings.Theme=original;App.Store.Settings.CompactLayout=false;Appearance.Apply(App.Store.Settings);
             Check(!string.IsNullOrWhiteSpace(OverlayManager.HotkeyStatus),"Overlay hotkey status is available");
+            Check(!OverlayManager.Initialized, "Isolated verification never registers the game's hotkey or modifies its RTSS overlay");
             var options=new JsonSerializerOptions{IncludeFields=true,WriteIndented=true,NumberHandling=JsonNumberHandling.AllowNamedFloatingPointLiterals};
             File.WriteAllText(Path.Combine(DirectoryPath,"verification.json"),JsonSerializer.Serialize(new{Pages,Failures,Sample=App.Monitor.LastSample,CpuSensorStatus=App.Monitor.CpuSensors.Status,CpuSensors=App.Monitor.CpuSensors.DescribeSensors(),FrequencySource=App.Monitor.CpuSensors.FrequencySource,Benchmark=Burmalk.Views.BenchmarkView.LastReport,Hardware=App.Monitor.Hardware.Snapshot,AI=App.Ai.Status},options));
         }

@@ -25,6 +25,7 @@ namespace Burmalk.Services
         public AppSettings Settings { get; private set; } = new AppSettings();
         public PerformanceRecord Performance { get; private set; }
         public PerformanceRecord Benchmarks { get; private set; }
+        public List<DiskMeasurement> DiskMeasurements { get; private set; } = new List<DiskMeasurement>();
         public List<GameSession> Sessions { get; private set; } = new List<GameSession>();
         public Dictionary<string, GameProfile> Profiles { get; private set; } = new Dictionary<string, GameProfile>();
 
@@ -57,6 +58,7 @@ namespace Burmalk.Services
                 Settings = ReadJson<AppSettings>(SettingsPath) ?? new AppSettings();
                 Performance = ReadJson<PerformanceRecord>(Path.Combine(RootDir, "performance.json"));
                 Benchmarks = ReadJson<PerformanceRecord>(Path.Combine(RootDir, "benchmarks.json"));
+                DiskMeasurements = ReadJson<List<DiskMeasurement>>(Path.Combine(RootDir, "disk-tests.json")) ?? new List<DiskMeasurement>();
                 Settings.DashboardVisible ??= new AppSettings().DashboardVisible;
                 Settings.DashboardLayout ??= new AppSettings().DashboardLayout;
                 Settings.DashboardPositions ??= new Dictionary<string, DashboardPosition>();
@@ -67,6 +69,11 @@ namespace Burmalk.Services
                     else { position.X = Math.Clamp(position.X, 0, 10000); position.Y = Math.Clamp(position.Y, 0, 10000); }
                 }
                 Settings.GameLibraryPaths ??= Array.Empty<string>();
+                if (!new[] { "Auto", "Desktop", "Laptop" }.Contains(Settings.PcModelChassis)) Settings.PcModelChassis = "Auto";
+                if (!new[] { "Auto", "Air", "Aio" }.Contains(Settings.PcModelCooling)) Settings.PcModelCooling = "Auto";
+                Settings.PcWidgetYaw = double.IsFinite(Settings.PcWidgetYaw) ? Settings.PcWidgetYaw % 360 : 32;
+                Settings.PcWidgetPitch = double.IsFinite(Settings.PcWidgetPitch) ? Math.Clamp(Settings.PcWidgetPitch, -65, 65) : 15;
+                Settings.PcWidgetDistance = double.IsFinite(Settings.PcWidgetDistance) ? Math.Clamp(Settings.PcWidgetDistance, 7, 22) : 18;
                 Sessions = ReadJson<List<GameSession>>(SessionsPath) ?? new List<GameSession>();
                 Profiles = ReadJson<Dictionary<string, GameProfile>>(ProfilesPath) ?? new Dictionary<string, GameProfile>();
                 Profiles = new Dictionary<string, GameProfile>(Profiles, StringComparer.OrdinalIgnoreCase);
@@ -105,10 +112,21 @@ namespace Burmalk.Services
         {
             lock (_gate)
             {
+                if (Performance != null && Performance.TestedUtc != record.TestedUtc)
+                    WriteJson(Path.Combine(RootDir, "rank-history", Performance.TestedUtc.ToString("yyyyMMdd-HHmmss") + ".json"), Performance);
                 Performance = record;
                 Benchmarks = record;
                 WriteJson(Path.Combine(RootDir, "performance.json"), record);
                 WriteJson(Path.Combine(RootDir, "benchmarks.json"), record);
+            }
+        }
+
+        public void SaveDiskMeasurement(DiskMeasurement measurement)
+        {
+            lock (_gate)
+            {
+                DiskMeasurements = DiskMeasurements.Where(d => !string.Equals(d.Root, measurement.Root, StringComparison.OrdinalIgnoreCase)).Append(measurement).ToList();
+                WriteJson(Path.Combine(RootDir, "disk-tests.json"), DiskMeasurements);
             }
         }
 
@@ -121,11 +139,11 @@ namespace Burmalk.Services
                 else Benchmarks = JsonSerializer.Deserialize<PerformanceRecord>(JsonSerializer.Serialize(Benchmarks, JsonOpts), JsonOpts);
                 if (gpu)
                 {
-                    Benchmarks.GpuFps = component.GpuFps; Benchmarks.GpuCompleted = component.GpuCompleted; Benchmarks.GpuSeconds = component.GpuSeconds; Benchmarks.RenderTier = component.RenderTier;
+                    Benchmarks.GpuEngine = component.GpuEngine; Benchmarks.GpuRenderer = component.GpuRenderer; Benchmarks.GpuFps = component.GpuFps; Benchmarks.GpuCompleted = component.GpuCompleted; Benchmarks.GpuSeconds = component.GpuSeconds; Benchmarks.RenderTier = component.RenderTier;
                 }
                 else
                 {
-                    Benchmarks.CpuMillionOps = component.CpuMillionOps; Benchmarks.CpuCompleted = component.CpuCompleted; Benchmarks.CpuSeconds = component.CpuSeconds;
+                    Benchmarks.CpuWorkers = component.CpuWorkers; Benchmarks.CpuMillionOps = component.CpuMillionOps; Benchmarks.CpuCompleted = component.CpuCompleted; Benchmarks.CpuSeconds = component.CpuSeconds;
                     Benchmarks.RamMegabytesPerSecond = component.RamMegabytesPerSecond; Benchmarks.RamCompleted = component.RamCompleted; Benchmarks.MemoryPassed = component.MemoryPassed; Benchmarks.MemoryBytesVerified = component.MemoryBytesVerified;
                 }
                 Benchmarks.TestedUtc = component.TestedUtc;

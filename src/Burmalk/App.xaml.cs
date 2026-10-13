@@ -127,7 +127,8 @@ namespace Burmalk
             MainWindow = window;
             ShutdownMode = ShutdownMode.OnMainWindowClose;
 
-            Services.OverlayManager.Initialize(this, Store, Monitor);
+            // Navigation verification must never steal the player's hotkey or change their RTSS OSD.
+            if (Verification.DirectoryPath == null || SelfTestMode == "overlay") Services.OverlayManager.Initialize(this, Store, Monitor);
             Services.GameService.Start();
         }
 
@@ -136,7 +137,7 @@ namespace Burmalk
             // A duplicate launch must not overwrite settings or stop the live instance's capture.
             if(Monitor==null){_instanceMutex?.Dispose();base.OnExit(e);return;}
             try { Services.GameService.Stop(); } catch { }
-            try { Services.OverlayManager.Shutdown(); } catch { }
+            try { if (Verification.DirectoryPath == null || SelfTestMode == "overlay") Services.OverlayManager.Shutdown(); } catch { }
             try { Tuning?.Dispose(); } catch { }
             try { Monitor.Dispose(); } catch { }
             try { Ai.Dispose(); } catch { }

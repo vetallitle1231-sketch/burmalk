@@ -17,6 +17,6 @@ namespace Burmalk.Models
         public PcRankResult Rank = new PcRankResult();
         public DateTime? TestedLocal;
         public string Method = RankMethodLabel;
-        public const string RankMethodLabel = "burmalk-relative-v1";
+        public const string RankMethodLabel = "burmalk-relative-v2";
     }
 }

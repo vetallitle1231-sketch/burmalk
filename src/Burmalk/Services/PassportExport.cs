@@ -21,7 +21,7 @@ namespace Burmalk.Services
         {
             var f = new FormattedText(text ?? "Нет данных", CultureInfo.GetCultureInfo("ru-RU"), FlowDirection.LeftToRight,
                 new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, bold ? FontWeights.SemiBold : FontWeights.Normal, FontStretches.Normal), size, brush, 1) { MaxTextWidth = Math.Max(1, width) };
-            dc.DrawText(f, new Point(x, y)); return f.Height;
+            dc?.DrawText(f, new Point(x, y)); return f.Height;
         }
         private static RenderTargetBitmap Bitmap(DrawingVisual visual, int width, int height)
         {
@@ -30,6 +30,25 @@ namespace Burmalk.Services
         public static BitmapSource Card(PcPassport p, bool portrait)
         {
             int w = portrait ? 1080 : 1600, h = portrait ? 1920 : 1120;
+            int columns = portrait ? 1 : 2;
+            double cellWidth = (w - 128 - (columns - 1) * 24) / columns;
+            var hardware = p.Sections.Take(6).ToArray();
+            double measured = 287;
+            for (int row = 0; row < (hardware.Length + columns - 1) / columns; row++)
+            {
+                double height = 0;
+                for (int col = 0; col < columns; col++)
+                {
+                    int index = row * columns + col; if (index >= hardware.Length) break;
+                    var section = hardware[index];
+                    double used = 35 + Text(null, section.Icon + "  " + section.Title, 0, 0, cellWidth - 44, portrait ? 17 : 15, Ink, true);
+                    foreach (var line in section.Lines) used += Text(null, line, 0, 0, cellWidth - 44, portrait ? 23 : 21, Ink) + 8;
+                    height = Math.Max(height, used + 17);
+                }
+                measured += height + 19;
+            }
+            measured += 33 + p.Sections.Last().Lines.Sum(line => Text(null, line, 0, 0, w - 128, portrait ? 21 : 18, Ink) + 7);
+            h = Math.Max(h, (int)Math.Ceiling(measured + 110));
             var visual = new DrawingVisual(); using (var dc = visual.RenderOpen())
             {
                 var bg = new LinearGradientBrush(Color.FromRgb(9, 15, 31), p.Style == "Aurora" ? Color.FromRgb(32, 19, 57) : p.Style == "Graphite" ? Color.FromRgb(21, 28, 39) : Color.FromRgb(12, 31, 45), 35);
@@ -40,10 +59,7 @@ namespace Burmalk.Services
                 Text(dc, p.OwnerLabel, 65, 161, w - 390, 27, Ink, true);
                 dc.PushTransform(new TranslateTransform(w - 277, 56)); dc.PushTransform(new ScaleTransform(.9, .9)); RankEmblem.Draw(dc, p.Rank); dc.Pop(); dc.Pop();
                 Text(dc, p.Rank.Confirmed ? p.Rank.Name + " / RANK " + p.Rank.Letter + " · " + Math.Floor(p.Rank.Total).ToString("0") : "PC RANK · Не протестировано", 65, 208, w - 350, 21, Accent(p.Style), true);
-                int columns = portrait ? 1 : 2;
-                double cellWidth = (w - 128 - (columns - 1) * 24) / columns;
                 double top = 287;
-                var hardware = p.Sections.Take(6).ToArray();
                 for (int row = 0; row < (hardware.Length + columns - 1) / columns; row++)
                 {
                     double rowHeight = 0;
@@ -52,8 +68,7 @@ namespace Burmalk.Services
                         int index = row * columns + col; if (index >= hardware.Length) break;
                         var section = hardware[index]; double x = 64 + col * (cellWidth + 24), y = top;
                         double used = 22 + Text(dc, section.Icon + "  " + section.Title, x + 22, y + 18, cellWidth - 44, portrait ? 17 : 15, Accent(p.Style), true) + 13;
-                        // Compact card intentionally summarizes; the PDF contains every hardware row.
-                        foreach (string line in section.Lines.Take(portrait ? 3 : 2))
+                        foreach (string line in section.Lines)
                             used += Text(dc, line, x + 22, y + used, cellWidth - 44, portrait ? 23 : 21, Ink) + 8;
                         rowHeight = Math.Max(rowHeight, used + 17);
                     }
@@ -67,7 +82,7 @@ namespace Burmalk.Services
                 var perf = p.Sections.Last();
                 Text(dc, "BENCHMARK / " + p.Method, 65, top + 2, w - 128, 15, Accent(p.Style), true);
                 double yPerf = top + 33;
-                foreach (var line in perf.Lines.Take(4)) yPerf += Text(dc, line, 65, yPerf, w - 128, portrait ? 21 : 18, Ink) + 7;
+                foreach (var line in perf.Lines) yPerf += Text(dc, line, 65, yPerf, w - 128, portrait ? 21 : 18, Ink) + 7;
                 Text(dc, "Пульс твоего ПК  ·  burmalk.online", 65, h - 65, w - 128, 15, Muted);
             }
             return Bitmap(visual, w, h);
@@ -114,7 +129,7 @@ namespace Burmalk.Services
                 y += 23;
             }
             if (y > height - 260) NewPage();
-            Text(dc, "Паспорт содержит доступные характеристики и результаты. Не заменяет диагностику. GPU FPS сцены WPF зависит также от CPU, драйвера, частоты экрана и масштабирования. Результаты других методик не смешиваются. Серийные номера и уникальные идентификаторы не экспортируются.", 70, y, width - 140, 17, Muted);
+            Text(dc, "Паспорт содержит доступные характеристики и результаты. Не заменяет диагностику. Объёмы GB и GiB используют разные единицы. Скорость накопителя появляется после измерения; результаты зависят от нагрузки и кэша. Результаты других методик не смешиваются. Серийные номера и уникальные идентификаторы не экспортируются.", 70, y, width - 140, 17, Muted);
             EndPage(); WritePdf(pages, width, height, path);
         }
         // Self-contained PDF 1.4 writer: Unicode is rendered with WPF fonts before JPEG page embedding.

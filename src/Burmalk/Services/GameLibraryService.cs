@@ -34,7 +34,9 @@ namespace Burmalk.Services
                 try { foreach (string link in Directory.EnumerateFiles(root, "*.lnk", SearchOption.AllDirectories)) AddShortcut(games, link); }
                 catch (Exception ex) { ErrorLog.Write("Game shortcut scan: " + ex.Message); }
             }
-            return games.Values.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            var discovered = games.Values.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            GameService.RegisterLibrary(discovered);
+            return discovered;
         });
 
         private static IEnumerable<string> SteamRoots()

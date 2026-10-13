@@ -20,6 +20,7 @@ namespace Burmalk.Models
         public string DriverVersion = "Unavailable";
         public string DriverDate = "Unavailable";
         public double VramTotalGb = double.NaN;
+        public string VramSource = "Нет данных";
     }
 
     public class RamModule
@@ -27,6 +28,7 @@ namespace Burmalk.Models
         public string Manufacturer = "Unavailable";
         public string PartNumber = "Unavailable";
         public int CapacityGb;
+        public long CapacityBytes;
         public int SpeedMhz;
         public string Slot = "Unavailable";
         public string MemoryType = "Unavailable";
@@ -35,6 +37,8 @@ namespace Burmalk.Models
     public class RamHardware
     {
         public double TotalGb;
+        public long InstalledBytes;
+        public double InstalledGb => InstalledBytes > 0 ? InstalledBytes / 1073741824d : double.NaN;
         public List<RamModule> Modules = new List<RamModule>();
         public int MaxSpeedMhz;
         public string MemoryType = "Unavailable";
@@ -58,6 +62,8 @@ namespace Burmalk.Models
         public int UptimeSeconds;
         public string Architecture = "Unavailable";
         public List<string> Monitors = new List<string>();
+        public bool IsLaptop;
+        public string Chassis = "Нет данных";
     }
 
     public class HardwareSnapshot

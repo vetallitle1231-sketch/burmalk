@@ -13,13 +13,14 @@ namespace Burmalk.Services
         public bool MemoryPassed;
         public double RamMegabytesPerSecond;
         public double CpuSeconds;
+        public int CpuWorkers;
     }
 
     public static class BenchmarkRunner
     {
         private static long _sink;
 
-        /// <summary>One bounded CPU worker plus a fixed 128 MiB write/read check.</summary>
+        /// <summary>All logical CPU workers plus a fixed 128 MiB write/read check.</summary>
         public static Task<BenchmarkReport> RunSystemAsync(IProgress<string> progress, CancellationToken cancellationToken, Func<bool> safeToContinue = null)
         {
             return Task.Run(() =>
@@ -49,17 +50,28 @@ namespace Burmalk.Services
                 report.MemoryPassed = true;
                 report.MemoryBytesVerified = memoryBytes;
 
-                progress?.Report("Тестирую одно ядро процессора в течение 60 секунд…");
-                long value = 1, iterations = 0;
+                report.CpuWorkers = Math.Max(1, Environment.ProcessorCount);
+                progress?.Report("Тестирую CPU · " + report.CpuWorkers + " потоков · 60 секунд…");
                 var cpu = Stopwatch.StartNew();
-                while (cpu.Elapsed < TimeSpan.FromSeconds(60))
+                var workers = new Task<long>[report.CpuWorkers];
+                for (int worker = 0; worker < workers.Length; worker++)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (safeToContinue != null && !safeToContinue()) throw new InvalidOperationException("Тест остановлен: перегрев, устаревшие датчики или окно закрыто.");
-                    for (int i = 0; i < 10000; i++) value = unchecked(value * 1664525 + 1013904223);
-                    iterations += 10000;
+                    int seed = worker + 1;
+                    workers[worker] = Task.Factory.StartNew(() =>
+                    {
+                        long value = seed, iterations = 0;
+                        while (cpu.Elapsed < TimeSpan.FromSeconds(60))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            if (safeToContinue != null && !safeToContinue()) throw new InvalidOperationException("Тест остановлен: перегрев или устаревшие датчики.");
+                            for (int i = 0; i < 100000; i++) value = unchecked(value * 1664525 + 1013904223);
+                            iterations += 100000;
+                        }
+                        Interlocked.Exchange(ref _sink, value); return iterations;
+                    }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
                 }
-                Interlocked.Exchange(ref _sink, value);
+                Task.WhenAll(workers).GetAwaiter().GetResult();
+                long iterations = 0; foreach (var worker in workers) iterations += worker.Result;
                 report.CpuMillionOpsPerSecond = iterations / cpu.Elapsed.TotalSeconds / 1e6;
                 report.CpuSeconds = cpu.Elapsed.TotalSeconds;
                 report.Seconds = total.Elapsed.TotalSeconds;

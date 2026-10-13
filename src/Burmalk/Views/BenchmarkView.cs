@@ -32,12 +32,12 @@ namespace Burmalk.Views
             _cancelSystem = ViewUi.Button("Остановить тест", CancelSystem);
             _cancelSystem.IsEnabled = false;
             var systemGrid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2 };
-            systemGrid.Children.Add(ViewUi.Panel("CPU · производительность одного ядра", _cpu));
+            systemGrid.Children.Add(ViewUi.Panel("CPU · производительность всех потоков", _cpu));
             systemGrid.Children.Add(ViewUi.Panel("RAM · проверка 128 МиБ", _memory));
             var root = new StackPanel();
-            root.Children.Add(ViewUi.Panel("ПРОВЕРКА CPU И RAM", ViewUi.Text("Тест занимает около минуты и использует одно ядро CPU, чтобы не замедлять весь компьютер. Проверяется запись и чтение 128 МиБ оперативной памяти; это проверка работы, а не диагностика всех модулей RAM."), _startSystem, _cancelSystem, _details, systemGrid, _peaks));
+            root.Children.Add(ViewUi.Panel("ПРОВЕРКА CPU И RAM", ViewUi.Text("Тест занимает около минуты и использует все логические потоки CPU. Перед запуском закрой игры. Проверяется запись и чтение 128 МиБ оперативной памяти; это проверка работы, а не диагностика всех модулей RAM."), _startSystem, _cancelSystem, _details, systemGrid, _peaks));
             _startGpu = ViewUi.Button("Начать GPU 3D-тест · 2 минуты", RunGpu);
-            root.Children.Add(ViewUi.Panel("БАЛЛЫ ВИДЕОКАРТЫ", ViewUi.Text("Анимированная 3D-сцена на WPF/Direct3D. Итог: средний FPS сцены × 100 баллов; сравнивать имеет смысл только на одном компьютере и в этой же версии приложения. Тест можно остановить в любой момент. Автостоп срабатывает при GPU 90 °C или CPU 95 °C, если датчик температуры доступен."), _startGpu, ViewUi.Text("Во время теста появится отдельное окно с нагрузкой и показаниями датчиков."), _gpu));
+            root.Children.Add(ViewUi.Panel("БАЛЛЫ ВИДЕОКАРТЫ", ViewUi.Text("Аппаратная OpenGL-сцена 1280 × 720, 96 шагов ray marching, без ограничения частотой монитора. Итог: средний FPS сцены × 100 баллов; сравнивать можно только результаты той же методики Burmalk v2. Тест можно остановить в любой момент. Автостоп срабатывает при GPU 90 °C или CPU 95 °C, если датчик температуры доступен."), _startGpu, ViewUi.Text("Во время теста появится отдельное окно с нагрузкой и показаниями датчиков."), _gpu));
             Content = root;
             _sampleTimer.Tick += (s, e) => CapturePeaks();
             Refresh();
@@ -82,11 +82,11 @@ namespace Burmalk.Views
             var progress = new Progress<string>(message => _details.Text = message);
             try
             {
-                var report = await BenchmarkRunner.RunSystemAsync(progress, _cancellation.Token);
+                var report = await BenchmarkRunner.RunSystemAsync(progress, _cancellation.Token, Safe);
                 LastReport = report;
                 if (report.MemoryPassed)
                 {
-                    var record = ComponentRecord(); record.CpuMillionOps = report.CpuMillionOpsPerSecond; record.CpuSeconds = report.CpuSeconds; record.CpuCompleted = report.CpuSeconds >= 59;
+                    var record = ComponentRecord(); record.CpuWorkers = report.CpuWorkers; record.CpuMillionOps = report.CpuMillionOpsPerSecond; record.CpuSeconds = report.CpuSeconds; record.CpuCompleted = report.CpuSeconds >= 59;
                     record.RamMegabytesPerSecond = report.RamMegabytesPerSecond; record.RamCompleted = report.RamMegabytesPerSecond > 0; record.MemoryPassed = report.MemoryPassed; record.MemoryBytesVerified = report.MemoryBytesVerified;
                     App.Store.SaveComponentBenchmark(record, false);
                 }
@@ -116,24 +116,32 @@ namespace Burmalk.Views
 
         private void CancelSystem() => _cancellation?.Cancel();
 
-        private void RunGpu()
+        private static bool Safe()
+        {
+            var s = App.Monitor.LastSample;
+            return DateTime.UtcNow.Ticks - s.TimestampUtc < TimeSpan.TicksPerSecond * 15 && (!double.IsFinite(s.CpuTempC) || s.CpuTempC < 95) && (!double.IsFinite(s.GpuTempC) || s.GpuTempC < 90);
+        }
+        private async void RunGpu()
         {
             if (_running || !PerformanceTest.TryEnter()) { _gpu.Text = "Другой бенчмарк уже работает."; return; }
-            try {
-            _maxCpuTemp = _maxGpuTemp = _maxCpuMhz = _maxGpuMhz = double.NaN;
-            var window = new GpuStressWindow(Window.GetWindow(this));
-            window.ShowDialog();
-            _maxCpuTemp = window.MaxCpuTemp; _maxGpuTemp = window.MaxGpuTemp; _maxCpuMhz = window.MaxCpuMhz; _maxGpuMhz = window.MaxGpuMhz;
-            if (window.Completed)
+            _running = true; _startGpu.IsEnabled = false;
+            _cancellation = new CancellationTokenSource();
+            _maxCpuTemp = _maxGpuTemp = _maxCpuMhz = _maxGpuMhz = double.NaN; _sampleTimer.Start();
+            try
             {
-                var record = ComponentRecord(); record.GpuFps = window.AverageFps; record.GpuSeconds = window.DurationSeconds; record.GpuCompleted = true; record.RenderTier = window.RenderTier;
-                App.Store.SaveComponentBenchmark(record, true);
+                var result = await NativeGpuWindow.RunAsync(Window.GetWindow(this), _cancellation.Token, Safe);
+                if (result.Completed)
+                {
+                    var record = ComponentRecord(); record.GpuFps = result.Fps; record.GpuSeconds = result.Seconds; record.GpuCompleted = true; record.RenderTier = 2;
+                    record.GpuEngine = NativeGpuBenchmark.Engine; record.GpuRenderer = result.Renderer;
+                    if (!NativeGpuBenchmark.MatchesRenderer(result.Renderer, record.GpuModel)) throw new InvalidOperationException("Тест использовал другую GPU: " + result.Renderer);
+                    App.Store.SaveComponentBenchmark(record, true);
+                }
+                _gpu.Text = Math.Round(result.Fps * 100) + " баллов · " + result.Fps.ToString("0.0") + " FPS · " + result.Renderer;
             }
-            if (window.AverageFps > 0)
-                _gpu.Text = "" + window.ScorePoints + " баллов · " + window.AverageFps.ToString("0.0") + " FPS в среднем\n" + window.SensorSummary;
-            else _gpu.Text = (window.FinishReason ?? "Тест завершён без результата") + "\n" + window.SensorSummary;
-            Refresh();
-            } finally { PerformanceTest.Exit(); }
+            catch (OperationCanceledException) { _gpu.Text = "GPU-тест остановлен"; }
+            catch (Exception ex) { _gpu.Text = "GPU: " + ex.Message; ErrorLog.Write("GPU benchmark: " + ex); }
+            finally { _sampleTimer.Stop(); _running = false; _startGpu.IsEnabled = true; _cancellation.Dispose(); _cancellation = null; PerformanceTest.Exit(); Refresh(); }
         }
         private static Burmalk.Models.PerformanceRecord ComponentRecord() => new Burmalk.Models.PerformanceRecord
         {

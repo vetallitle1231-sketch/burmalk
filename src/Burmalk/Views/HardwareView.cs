@@ -1,3 +1,4 @@
+using Burmalk.Services;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -102,8 +103,8 @@ namespace Burmalk.Views
             var gpu=App.Monitor.Gpu.Last;
             _gpuName.Text=gpu.Name!="Unavailable"?gpu.Name:snap.Gpu.Name;
             _gpuDriver.Text="Driver "+(gpu.DriverVersion!="Unavailable"?gpu.DriverVersion:snap.Gpu.DriverVersion);
-            _gpuVram.Text="VRAM "+Fmt.Gb(live.GpuVramUsedGb)+" / "+Fmt.Gb(live.GpuVramTotalGb)+"\nUtilization "+Fmt.Pct(live.GpuPercent)+" · Temperature "+Fmt.C(live.GpuTempC)+"\nGraphics clock "+MetricView.Number(live.GpuClockMhz,"MHz")+" · Power "+Fmt.W(live.GpuPowerW);
-            _ramTitle.Text=Fmt.Gb(snap.Ram.TotalGb)+" · Used "+Fmt.Gb(live.RamUsedGb)+" · Available "+Fmt.Gb(snap.Ram.TotalGb>0?snap.Ram.TotalGb-live.RamUsedGb:double.NaN);
+            _gpuVram.Text="VRAM установлено "+PassportService.Number(snap.Gpu.VramTotalGb,"GiB")+" · занято "+Fmt.Gb(live.GpuVramUsedGb)+" / "+Fmt.Gb(live.GpuVramTotalGb)+"\nUtilization "+Fmt.Pct(live.GpuPercent)+" · Temperature "+Fmt.C(live.GpuTempC)+"\nGraphics clock "+MetricView.Number(live.GpuClockMhz,"MHz")+" · Power "+Fmt.W(live.GpuPowerW);
+            _ramTitle.Text=PassportService.Number(snap.Ram.InstalledGb,"GiB")+" установлено · Windows "+PassportService.Number(snap.Ram.TotalGb,"GiB")+" · Used "+Fmt.Gb(live.RamUsedGb)+" · Available "+Fmt.Gb(snap.Ram.TotalGb>0?snap.Ram.TotalGb-live.RamUsedGb:double.NaN);
             _ramModules.Children.Clear();foreach(var module in snap.Ram.Modules)_ramModules.Children.Add(Text(module.Slot+" · "+module.CapacityGb+" GB · "+module.SpeedMhz+" MT/s · "+module.Manufacturer));
             _mbName.Text=snap.Motherboard.Manufacturer+" · "+snap.Motherboard.Model;
             _mbBios.Text="BIOS "+snap.Motherboard.BiosVersion+" · "+snap.Motherboard.BiosDate;

@@ -12,3 +12,6 @@ sessions.json
 profiles.json
 performance.json
 benchmarks.json
+
+disk-tests.json
+rank-history/

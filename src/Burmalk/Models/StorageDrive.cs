@@ -9,6 +9,7 @@ namespace Burmalk.Models
         public string VolumeName = "";
         public string MediaKind = "Unavailable"; // SSD / HDD
         public long TotalGb;
+        public long TotalBytes, FreeBytes;
         public long UsedGb;
         public long FreeGb;
         public double UsedPercent;

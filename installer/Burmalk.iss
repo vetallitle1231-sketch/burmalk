@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.1.9"
+  #define AppVersion "1.1.10"
 #endif
 #ifndef PublishDir
-  #define PublishDir "..\.build\publish-v1.1.9"
+  #define PublishDir "..\.build\publish-v1.1.10"
 #endif
 [Setup]
 AppId=Burmalk.Experimental.App
@@ -24,6 +24,8 @@ UninstallDisplayIcon={app}\Burmalk.exe
 WizardSmallImageFile=..\src\Burmalk\Assets\Burmalk.png
 WizardStyle=modern dark polar includetitlebar
 Compression=lzma2/normal
+CompressionThreads=1
+LZMANumBlockThreads=1
 SolidCompression=yes
 CloseApplications=yes
 RestartApplications=no
@@ -48,6 +50,8 @@ Name: "{userprograms}\Burmalk Experimental {#AppVersion}"; Filename: "{app}\Burm
 [InstallDelete]
 Type: files; Name: "{userdesktop}\Burmalk Experimental 1.1.8.lnk"
 Type: files; Name: "{userprograms}\Burmalk Experimental 1.1.8.lnk"
+Type: files; Name: "{userdesktop}\Burmalk Experimental 1.1.9.lnk"
+Type: files; Name: "{userprograms}\Burmalk Experimental 1.1.9.lnk"
 
 [Run]
 Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; Description: "Запустить Burmalk экспериментальную версию"; Flags: nowait postinstall skipifsilent

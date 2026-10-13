@@ -17,13 +17,14 @@ namespace Burmalk.Views
     /// <summary>A compact, movable home HUD. Widget order belongs to the user's settings.</summary>
     public class DashboardView : UserControl, IRefreshable
     {
-        public static readonly string[] DefaultOrder = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes", "rank" };
+        public static readonly string[] DefaultOrder = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes", "rank", "pc3d" };
         private readonly Burmalk.Controls.RankEmblem _rankEmblem = new Burmalk.Controls.RankEmblem { Width = 100, Height = 100 };
         private readonly TextBlock _rankName = ViewUi.Text("ПОЛУЧИТЬ РАНГ");
         private readonly TextBlock _rankDetail = ViewUi.Text("Пройди полный тест PC RANK");
         private readonly Burmalk.Controls.RankEmblem _rankHeaderEmblem = new Burmalk.Controls.RankEmblem { Width = 60, Height = 60 };
         private readonly TextBlock _rankHeaderText = ViewUi.Text("");
         private readonly Button _rankHeaderButton = new Button { ContentTemplate = null, Visibility = Visibility.Collapsed, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 3, 0, 0) };
+        private readonly PcView3D _pcModel = new PcView3D(true);
         private readonly Canvas _grid = new Canvas { Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
         private readonly ScrollViewer _workspace = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         private readonly Dictionary<string, Border> _cards = new Dictionary<string, Border>();
@@ -89,7 +90,7 @@ namespace Burmalk.Views
             AddMetric("gpu", "ВИДЕОКАРТА", "◆", ViewUi.Green, hub.GpuPercent,
                 s => Fmt.Pct(s.GpuPercent), s => "Температура  " + Fmt.C(s.GpuTempC) + "    ·    VRAM  " + Fmt.Gb(s.GpuVramUsedGb), 100);
             AddMetric("ram", "ОПЕРАТИВНАЯ ПАМЯТЬ", "▤", ViewUi.Purple, hub.RamPercent,
-                s => Fmt.Pct(s.RamPercent), s => "Занято  " + Fmt.Gb(s.RamUsedGb) + "  из  " + Fmt.Gb(App.Monitor.Hardware.Snapshot.Ram.TotalGb), 100);
+                s => Fmt.Pct(s.RamPercent), s => "Занято " + Fmt.Gb(s.RamUsedGb) + " · установлено " + PassportService.Number(App.Monitor.Hardware.Snapshot.Ram.InstalledGb, "GiB"), 100);
             AddMetric("disk", "ДИСКИ", "▣", ViewUi.Gold, hub.DiskActivePercent,
                 s => Fmt.Pct(s.DiskActivePercent), s => "Чтение  " + Fmt.Rate(s.DiskReadKBps) + "\nЗапись  " + Fmt.Rate(s.DiskWriteKBps), 100);
             AddMetric("network", "СЕТЬ", "↕", ViewUi.Blue, hub.NetDownKBps,
@@ -103,6 +104,12 @@ namespace Burmalk.Views
             _rankName.FontSize = 15; _rankName.FontWeight = FontWeights.SemiBold; _rankDetail.FontSize = 10;
             rankInfo.Children.Add(_rankName); rankInfo.Children.Add(_rankDetail); rankBody.Children.Add(rankInfo);
             AddSimple("rank", "MY PC RANK", "✦", ViewUi.Purple, rankBody, ViewUi.Button("ПОЛУЧИТЬ РАНГ / ТЕСТ", () => (Window.GetWindow(this) as MainWindow)?.NavigateTo("PC RANK")));
+            AddSimple("pc3d", "МОЙ ПК · 3D", "◇", ViewUi.Blue, _pcModel);
+            if (!App.Store.Settings.PcModelWidgetIntroduced)
+            {
+                App.Store.Settings.DashboardVisible = (App.Store.Settings.DashboardVisible ?? DefaultOrder).Append("pc3d").Distinct().ToArray();
+                App.Store.Settings.PcModelWidgetIntroduced = true; App.Store.Save();
+            }
             if (!App.Store.Settings.RankWidgetIntroduced)
             {
                 App.Store.Settings.DashboardVisible = (App.Store.Settings.DashboardVisible ?? DefaultOrder).Concat(new[] { "rank" }).Distinct().ToArray();
@@ -283,7 +290,7 @@ namespace Burmalk.Views
         {
             "cpu" => "Процессор", "gpu" => "Видеокарта", "ram" => "Память", "disk" => "Диски",
             "network" => "Сеть", "game" => "Игра", "music" => "Музыка", "system" => "Система",
-            "processes" => "Процессы", "rank" => "MY PC RANK", _ => id
+            "processes" => "Процессы", "rank" => "MY PC RANK", "pc3d" => "Мой ПК · 3D", _ => id
         };
 
         private void WidgetVisibilityChanged(object sender, RoutedEventArgs e)
@@ -332,6 +339,7 @@ namespace Burmalk.Views
 
         public void Refresh()
         {
+            _pcModel.Refresh();
             var rank = PassportService.CurrentRank(); _rankEmblem.Rank = rank;
             _rankHeaderEmblem.Rank = rank; _rankHeaderButton.Visibility = rank.Confirmed ? Visibility.Visible : Visibility.Collapsed;
             _rankHeaderText.Text = rank.Confirmed ? rank.Name + "\n" + Math.Floor(rank.Total).ToString("0") + " баллов" : "";
@@ -347,7 +355,7 @@ namespace Burmalk.Views
             var game = GameService.Current;
             _gameValue.Text = game?.Active == true && game.FpsAvailable ? MetricView.Number(game.FpsCurrent, "FPS") : game?.Active == true ? game.GameName : "Нет игры";
             _gameDetail.Text = game?.Active == true
-                ? game.GameName + (game.FpsAvailable ? "    ·    AVG " + MetricView.Number(game.FpsAvg, "FPS") : "    ·    FPS недоступен")
+                ? game.GameName + (game.FpsAvailable ? "    ·    AVG " + MetricView.Number(game.FpsAvg, "FPS") + " · " + game.FpsSource : "    ·    Нажми RTSS во вкладке Gaming")
                 : "Игра появится здесь автоматически.";
 
             var hardware = App.Monitor.Hardware.Snapshot;

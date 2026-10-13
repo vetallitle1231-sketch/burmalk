@@ -67,6 +67,8 @@ using (var cancel = new CancellationTokenSource())
     try { await InternetSpeedTest.RunAsync(cancel.Token, progress, http); throw new Exception("Cancelled fallback ran"); }
     catch (OperationCanceledException) { Check(handler.Requests == 1, "Cancellation prevents fallback requests"); }
 }
+if (!args.Contains("--no-disk"))
+{
 string fixture = Path.Combine(Path.GetTempPath(), "BurmalkFeatureChecks-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(fixture); string sentinel = Path.Combine(fixture, "keep.txt"); File.WriteAllText(sentinel, "preserve me");
 try
@@ -87,6 +89,7 @@ try
     catch (ArgumentOutOfRangeException) { Check(true, "Direct I/O rejects unaligned sizes"); }
 }
 finally { File.Delete(sentinel); Directory.Delete(fixture); }
+}
 // Minimal real-endpoint compatibility probe only: no speed/load test during verification.
 if (args.Contains("--live"))
 using (var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) })
@@ -111,7 +114,7 @@ sealed class FakeServer : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
     {
         await Task.Delay(2, token); Requests++;
-        if (request.Headers.UserAgent.ToString() != "Burmalk/1.1.8") throw new Exception("Missing honest application User-Agent");
+        if (request.Headers.UserAgent.ToString() != "Burmalk/" + typeof(InternetSpeedTest).Assembly.GetName().Version?.ToString(3)) throw new Exception("Missing honest application User-Agent");
         bool primary = request.RequestUri!.Host == "speed.cloudflare.com";
         if ((primary && CloudflareForbidden) || (primary && CloudflareFailAfterDownload && Downloaded > 0) || (UploadForbidden && request.Method == HttpMethod.Post)) return new HttpResponseMessage(HttpStatusCode.Forbidden);
         if (Error) return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);

@@ -13,6 +13,8 @@ namespace Burmalk.Models
         public long MemoryBytesVerified;
         public bool CpuCompleted, RamCompleted, GpuCompleted, MemoryPassed;
         public int RenderTier;
+        public int CpuWorkers;
+        public string GpuEngine = "", GpuRenderer = "";
         public string Status = "Не протестировано";
         public double MaxCpuTemp = double.NaN, MaxGpuTemp = double.NaN;
         public double MaxCpuMhz = double.NaN, MaxGpuMhz = double.NaN;

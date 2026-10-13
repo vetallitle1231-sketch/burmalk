@@ -208,7 +208,7 @@ namespace Burmalk.Services
             h.GpuPowerW.Push(s.GpuPowerW,s.TimestampUtc);
             h.RamUsedGb.Push(s.RamUsedGb,s.TimestampUtc);
             h.RamPercent.Push(s.RamPercent,s.TimestampUtc);
-            if(Hardware.ProbeCompleted && double.IsFinite(s.GpuVramTotalGb)) Hardware.Snapshot.Gpu.VramTotalGb=s.GpuVramTotalGb;
+            // Keep installed GPU capacity separate from driver-available monitoring memory.
             h.DiskReadKBps.Push(s.DiskReadKBps,s.TimestampUtc);
             h.DiskWriteKBps.Push(s.DiskWriteKBps,s.TimestampUtc);
             h.DiskActivePercent.Push(s.DiskActivePercent,s.TimestampUtc);

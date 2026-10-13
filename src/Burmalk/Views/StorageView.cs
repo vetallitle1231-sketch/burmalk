@@ -82,8 +82,8 @@ namespace Burmalk.Views
 
         private static UIElement BuildDriveRow(StorageDrive d)
         {
-            string free = d.TotalGb > 0 ? (d.FreeGb.ToString() + " GB free") : "";
-            string total = d.TotalGb > 0 ? (d.TotalGb.ToString() + " GB") : "";
+            string free = d.TotalGb > 0 ? (d.FreeGb.ToString() + " GiB free") : "";
+            string total = d.TotalGb > 0 ? ((d.TotalBytes / 1073741824d).ToString("0.##") + " GiB") : "";
             string used = d.TotalGb > 0 ? (d.UsedPercent.ToString("0") + " %") : "";
             return new TextBlock
             {
@@ -110,7 +110,7 @@ namespace Burmalk.Views
             foreach (var p in _storage.PhysicalDrives)
             {
                 any = true;
-                string cap = p.CapacityGb > 0 ? p.CapacityGb.ToString("0.0") + " GB" : "—";
+                string cap = p.CapacityGb > 0 ? (p.CapacityBytes / 1e9).ToString("0") + " GB / " + (p.CapacityBytes / 1073741824d).ToString("0.##") + " GiB" : "—";
                 string kind = p.Kind != null && p.Kind != "—" ? p.Kind : "—";
                 _diskStack.Children.Add(new TextBlock
                 {

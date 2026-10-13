@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Burmalk.Controls;
 using Burmalk.Models;
+using Burmalk.Services;
 
 namespace Burmalk.Views
 {
@@ -87,7 +88,7 @@ namespace Burmalk.Views
                 _info.Text = m.Gpu.Last.Name + " · driver " + m.Gpu.Last.DriverVersion + "\nЧастота ядра GPU: " + Number(s.GpuClockMhz, "MHz");
                 _info.ToolTip = "Ядро: clocks.current.graphics. Память: clocks.current.memory, в единицах NVIDIA SMI. Частоты памяти в других программах могут использовать другую шкалу; это не частота ядра. Значения не делятся на неподтверждённый коэффициент.";
             }
-            else if (_kind=="RAM") _info.Text="Total "+Fmt.Gb(hw.Ram.TotalGb)+" · Available "+Fmt.Gb(hw.Ram.TotalGb>0 ? hw.Ram.TotalGb-s.RamUsedGb : double.NaN)+" · "+hw.Ram.Modules.Count+" modules · "+(hw.Ram.MaxSpeedMhz>0 ? hw.Ram.MaxSpeedMhz+" MT/s" : "Unavailable");
+            else if (_kind=="RAM") _info.Text="Установлено "+PassportService.Number(hw.Ram.InstalledGb,"GiB")+" · Windows "+Fmt.Gb(hw.Ram.TotalGb)+" · Свободно "+Fmt.Gb(hw.Ram.TotalGb>0 ? hw.Ram.TotalGb-s.RamUsedGb : double.NaN)+" · "+hw.Ram.Modules.Count+" модулей · "+(hw.Ram.MaxSpeedMhz>0 ? hw.Ram.MaxSpeedMhz+" MT/s" : "Нет данных");
             else _info.Text="All physical disks · read and write counters · recent history";
             foreach(var update in _updates) update(s);
             foreach(var graph in _graphs) graph.InvalidateVisual();

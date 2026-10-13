@@ -6,8 +6,8 @@ using Burmalk.Models;
 
 if(Array.Exists(args,arg=>arg=="--probe-live"))
 {
-    using var live=MemoryMappedFile.OpenExisting("RTSSSharedMemoryV2",MemoryMappedFileRights.ReadWrite);
-    using var liveView=live.CreateViewAccessor(0,0,MemoryMappedFileAccess.ReadWrite);
+    using var live=MemoryMappedFile.OpenExisting("RTSSSharedMemoryV2",MemoryMappedFileRights.Read);
+    using var liveView=live.CreateViewAccessor(0,0,MemoryMappedFileAccess.Read);
     Console.WriteLine($"RTSS mapping: signature=0x{liveView.ReadUInt32(0):X8}, version=0x{liveView.ReadUInt32(4):X8}, app entries={liveView.ReadUInt32(16)}, OSD slots={liveView.ReadUInt32(28)}");
     if(args.Length>1&&int.TryParse(args[1],out int requestedPid))
     {

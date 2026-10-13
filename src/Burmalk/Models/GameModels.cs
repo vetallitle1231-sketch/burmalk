@@ -15,6 +15,7 @@ namespace Burmalk.Models
 
         // FPS: honest availability (no fake values)
         public bool FpsAvailable;
+        public string FpsSource = "";
         public double FpsCurrent;
         public double FpsAvg;
         public double FpsMin = double.MaxValue;

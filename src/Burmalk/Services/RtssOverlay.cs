@@ -9,7 +9,7 @@ namespace Burmalk.Services;
 // RTSS SDK v2.14+ shared-memory protocol. Only our own secondary OSD slot is changed.
 internal static class RtssOverlay
 {
-    internal readonly record struct FrameStats(double Fps,double FrameMs)
+    internal readonly record struct FrameStats(double Fps,double FrameMs, uint Stamp = 0)
     {
         public bool Available=>double.IsFinite(Fps)&&Fps>0;
     }
@@ -55,7 +55,7 @@ internal static class RtssOverlay
             double fps=time0>0&&time1>time0&&frames>0?1000d*frames/(time1-time0):double.NaN;
             double frameMs=microseconds>0?microseconds/1000d:double.NaN;
             if(!double.IsFinite(fps)&&double.IsFinite(frameMs))fps=1000d/frameMs;
-            return new FrameStats(double.IsFinite(fps)&&fps>0&&fps<10000?fps:double.NaN,double.IsFinite(frameMs)&&frameMs>0&&frameMs<1000?frameMs:double.NaN);
+            return new FrameStats(double.IsFinite(fps)&&fps>0&&fps<10000?fps:double.NaN,double.IsFinite(frameMs)&&frameMs>0&&frameMs<1000?frameMs:double.NaN, time1);
         }
         return default;
     }

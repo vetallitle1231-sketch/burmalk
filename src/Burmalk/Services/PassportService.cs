@@ -8,6 +8,7 @@ namespace Burmalk.Services
     {
         public static string Text(string value) => string.IsNullOrWhiteSpace(value) || value == "Unavailable" || value == "Unknown" ? "Нет данных" : value.Trim();
         public static string Number(double value, string unit) => double.IsFinite(value) && value >= 0 ? value.ToString("0.##") + " " + unit : "Нет данных";
+        public static string NominalVram(double value) => double.IsFinite(value) && value >= 1 && Math.Abs(Math.Round(value) - value) < .125 ? "≈ " + Number(Math.Round(value), "GiB") : Number(value, "GiB");
         public static string GpuName() => Text(App.Monitor.Gpu.Last.Name) != "Нет данных" ? App.Monitor.Gpu.Last.Name : App.Monitor.Hardware.Snapshot.Gpu.Name;
         public static PcRankResult CurrentRank()
         {
@@ -20,21 +21,31 @@ namespace Burmalk.Services
         {
             var h = App.Monitor.Hardware.Snapshot; var s = App.Monitor.LastSample;
             bool fresh = DateTime.UtcNow.Ticks - s.TimestampUtc < TimeSpan.TicksPerSecond * 15;
-            double vram = fresh && s.GpuVramTotalGb > 0 ? s.GpuVramTotalGb : double.NaN; // AdapterRAM is 32-bit and can misreport >4 GiB GPUs.
+            double vram = h.Gpu.VramTotalGb; // Physical dedicated memory from 64-bit DXGI, not driver-available VRAM.
             var passport = new PcPassport { CreatedLocal = DateTime.Now, Style = style, Rank = CurrentRank(),
                 OwnerLabel = hidePersonal ? "ТВОЙ ПК" : Text(h.System.ComputerName), TestedLocal = App.Store.Performance?.TestedUtc.ToLocalTime() };
             void Add(string icon, string title, params string[] lines) => passport.Sections.Add(new PassportSection { Title = title, Icon = icon, Lines = lines.ToList() });
             Add("◉", "ПРОЦЕССОР", Text(h.Cpu.Model), (h.Cpu.Cores > 0 ? h.Cpu.Cores + " ядер / " + h.Cpu.Threads + " потоков" : "Ядра и потоки: Нет данных"),
                 "Макс. частота WMI: " + Number(h.Cpu.BaseGhz * 1000, "MHz"), "Текущая: " + Number(fresh ? s.CpuGhz * 1000 : double.NaN, "MHz"));
-            Add("◆", "ВИДЕОКАРТА", Text(GpuName()), "VRAM: " + Number(vram, "GiB"), "Драйвер: " + Text(h.Gpu.DriverVersion), "Ядро: " + Number(fresh ? s.GpuClockMhz : double.NaN, "MHz"));
-            Add("▤", "ОПЕРАТИВНАЯ ПАМЯТЬ", Number(h.Ram.TotalGb, "GiB") + " / " + Text(h.Ram.MemoryType),
+            Add("◆", "ВИДЕОКАРТА", Text(GpuName()), "VRAM: " + NominalVram(vram), "Драйвер сообщил: " + Number(vram, "GiB") + " · " + h.Gpu.VramSource, "Драйвер: " + Text(h.Gpu.DriverVersion), "Ядро: " + Number(fresh ? s.GpuClockMhz : double.NaN, "MHz"));
+            Add("▤", "ОПЕРАТИВНАЯ ПАМЯТЬ", "Установлено: " + Number(h.Ram.InstalledGb, "GiB") + " / " + Text(h.Ram.MemoryType),
                 "Скорость: " + Number(h.Ram.MaxSpeedMhz, "MT/s"), "Модули: " + (h.Ram.Modules.Count > 0 ? h.Ram.Modules.Count.ToString() : "Нет данных"),
-                string.Join("; ", h.Ram.Modules.Select(m => Text(m.Manufacturer) + " " + Text(m.PartNumber) + " · " + Number(m.CapacityGb, "GiB"))));
+                "Доступно Windows: " + Number(h.Ram.TotalGb, "GiB"));
+            passport.Sections.Last().Lines.AddRange(h.Ram.Modules.Select(m => Text(m.Slot) + ": " + Text(m.Manufacturer) + " " + Text(m.PartNumber) + " · " + Number(m.CapacityBytes / 1073741824d, "GiB") + " · " + Number(m.SpeedMhz, "MT/s")));
             Add("▦", "МАТЕРИНСКАЯ ПЛАТА", Text(h.Motherboard.Manufacturer) + " " + Text(h.Motherboard.Model), "BIOS: " + Text(h.Motherboard.BiosVersion), "Дата BIOS: " + Text(h.Motherboard.BiosDate));
             var disks = App.Monitor.Storage.PhysicalDrives;
-            Add("▣", "НАКОПИТЕЛИ", disks.Count == 0 ? new[] { "Нет данных" } : disks.Select(d => Text(d.Model) + " / " + Text(d.Kind) + " / " + Number(d.CapacityGb, "GiB")).ToArray());
+            Add("▣", "НАКОПИТЕЛИ", disks.Count == 0 ? new[] { "Нет данных" } : disks.Select(d => "Диск " + d.Index + " [" + string.Join(", ", d.VolumeLetters.Distinct()) + "]: " + Text(d.Model) + " / " + Text(d.Kind) + " / " + (d.CapacityBytes / 1e9).ToString("0") + " GB" + " (" + Number(d.CapacityBytes / 1073741824d, "GiB") + ")").ToArray());
+            var volumes = App.Monitor.Storage.RefreshSpace().ToList();
+            foreach (var volume in volumes)
+            {
+                passport.Sections.Last().Lines.Add(volume.Letter + " · " + Number(volume.TotalBytes / 1073741824d, "GiB") + " · свободно " + Number(volume.FreeBytes / 1073741824d, "GiB"));
+                var device = disks.FirstOrDefault(d => d.VolumeLetters.Contains(volume.Letter));
+                var tested = App.Store.DiskMeasurements.FirstOrDefault(d => string.Equals(d.Root.TrimEnd('\\'), volume.Letter, StringComparison.OrdinalIgnoreCase) && d.VolumeBytes == volume.TotalBytes && device != null && d.PhysicalModel == device.Model);
+                passport.Sections.Last().Lines.Add(tested == null ? volume.Letter + " · Скорость: не измерена (Disk Activity → Проверить)" : volume.Letter + " · Чтение " + Number(tested.ReadMBps, "MB/s") + " · запись " + Number(tested.WriteMBps, "MB/s") + " · " + tested.TestedUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm"));
+            }
             Add("◇", "СИСТЕМА", Text(h.System.OsName) + " · " + Text(h.System.Architecture), "Версия: " + Text(h.System.OsVersion) + " / build " + Text(h.System.OsBuild),
                 "Мониторы: " + (h.System.Monitors.Count == 0 ? "Нет данных" : string.Join("; ", h.System.Monitors)));
+            passport.Sections.Last().Lines.Add("Тип устройства: " + h.System.Chassis);
             var r = App.Store.Benchmarks ?? App.Store.Performance;
             if (r != null && (!RankMethod.MatchesHardware(r, h, GpuName()) || r.MethodVersion != RankMethod.Version)) r = null;
             Add("ϟ", "ПРОИЗВОДИТЕЛЬНОСТЬ", "GPU: " + (r?.GpuCompleted == true ? Math.Round(r.GpuFps * 100) + " баллов / " + r.GpuFps.ToString("0.0") + " FPS сцены" : "Не протестировано"),

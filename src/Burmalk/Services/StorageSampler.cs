@@ -27,13 +27,13 @@ namespace Burmalk.Services
         private readonly System.Diagnostics.PerformanceCounter _active;
         private List<PhysicalDisk> _physical = new List<PhysicalDisk>();
         private List<StorageDrive> _drives = new List<StorageDrive>();
-        
+
         private bool _initFailed;
 
         public bool Initialized { get { return !_initFailed && _read != null && _write != null && _active != null; } }
 
         /// <summary>Physical drive metadata (WMI), populated by Init().</summary>
-        public List<PhysicalDisk> PhysicalDrives { get { lock(_gate) { return _physical.ToList(); } } }
+        public List<PhysicalDisk> PhysicalDrives { get { lock(_gate) { return _physical.OrderBy(p => p.Index).ToList(); } } }
 
         public StorageSampler()
         {
@@ -76,9 +76,19 @@ namespace Burmalk.Services
                 var diskTypes = WmiHelper.Query("SELECT DeviceId, MediaType FROM MSFT_PhysicalDisk", 3000, "root\\Microsoft\\Windows\\Storage");
                 var raw = WmiHelper.Query(
                     "SELECT Name, DeviceID, MediaType, Model, Size, Index FROM Win32_DiskDrive");
+                lock (_gate) _physical.Clear();
+                var volumeLinks = WmiHelper.Query("SELECT Antecedent, Dependent FROM Win32_LogicalDiskToPartition");
                 foreach (var r in raw)
                 {
                     var pd = new PhysicalDisk();
+                    try { pd.Index = Convert.ToInt32(r["Index"]); } catch { }
+                    foreach (var link in volumeLinks)
+                    {
+                        var physical = System.Text.RegularExpressions.Regex.Match(Convert.ToString(link["Antecedent"]) ?? "", @"Disk #(\d+)");
+                        var logical = System.Text.RegularExpressions.Regex.Match(Convert.ToString(link["Dependent"]) ?? "", "DeviceID=\"([^\"]+)\"");
+                        if (physical.Success && logical.Success && int.TryParse(physical.Groups[1].Value, out int diskIndex) && diskIndex == pd.Index)
+                            pd.VolumeLetters.Add(logical.Groups[1].Value);
+                    }
                     try { pd.Name = (string)r["Name"]; } catch { }
                     try {
                         var mediaType = (string)r["MediaType"] ?? "";
@@ -99,6 +109,7 @@ namespace Burmalk.Services
                     try
                     {
                         long bytes = Convert.ToInt64(r["Size"]);
+                        pd.CapacityBytes = Math.Max(0, bytes);
                         pd.CapacityGb = bytes > 0 ? bytes / (1024L * 1024 * 1024) : 0;
                     }
                     catch { }
@@ -159,6 +170,7 @@ namespace Burmalk.Services
                                     ? "Local Disk"
                                     : info.VolumeLabel,
                                 TotalGb = info.TotalSize / (1024L * 1024 * 1024),
+                                TotalBytes = info.TotalSize, FreeBytes = info.AvailableFreeSpace,
                                 FreeGb = info.AvailableFreeSpace / (1024L * 1024 * 1024),
                                 UsedGb = (info.TotalSize - info.AvailableFreeSpace) / (1024L * 1024 * 1024),
                                 UsedPercent = info.TotalSize > 0

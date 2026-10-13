@@ -99,13 +99,16 @@ namespace Burmalk.Services
             if (gpus.Count > 0)
             {
                 // Prefer a row that looks like a discrete GPU (has VRAM) — first entry with AdapterRAM
-                var pick = gpus.FirstOrDefault(r => r["AdapterRAM"] != null) ?? gpus[0];
+                var pick = gpus.FirstOrDefault(r => S(r["Name"]).Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) ?? gpus.FirstOrDefault(r => r["AdapterRAM"] != null) ?? gpus[0];
                 snap.Gpu.Name = S(pick["Name"]);
                 try { snap.Gpu.DriverVersion = S(pick["DriverVersion"]); } catch { }
                 try
                 {
                     long bytes = Convert.ToInt64(pick["AdapterRAM"]);
-                    snap.Gpu.VramTotalGb = bytes > 0 ? bytes / (1024d * 1024 * 1024) : 0.0;
+                    snap.Gpu.VramTotalGb = DedicatedVideoMemory.ReadGiB(snap.Gpu.Name);
+                    snap.Gpu.VramSource = "DXGI · dedicated";
+                    double physical = NvidiaPhysicalMemory.ReadGiB(snap.Gpu.Name);
+                    if (double.IsFinite(physical)) { snap.Gpu.VramTotalGb = physical; snap.Gpu.VramSource = "NVAPI · физическая память"; }
                 }
                 catch { }
             }
@@ -132,6 +135,7 @@ namespace Burmalk.Services
                 try
                 {
                     long bytes = Convert.ToInt64(m["Capacity"]);
+                    mod.CapacityBytes = Math.Max(0, bytes);
                     mod.CapacityGb = bytes > 0 ? (int)(bytes / (1024 * 1024 * 1024)) : 0;
                 }
                 catch { }
@@ -142,6 +146,7 @@ namespace Burmalk.Services
                 if (mod.SpeedMhz > snap.Ram.MaxSpeedMhz) snap.Ram.MaxSpeedMhz = mod.SpeedMhz;
             }
 
+            snap.Ram.InstalledBytes = snap.Ram.Modules.Sum(m => m.CapacityBytes);
             if (snap.Ram.TotalGb <= 0 && snap.Ram.Modules.Count > 0)
                 snap.Ram.TotalGb = snap.Ram.Modules.Sum(m => m.CapacityGb);
             snap.Ram.MemoryType = string.Join(" / ", snap.Ram.Modules.Select(m => m.MemoryType).Where(t => t != "Unavailable").Distinct());
@@ -181,6 +186,14 @@ namespace Burmalk.Services
             // Machine name: Environment.MachineName is the canonical, always-available
             // source (WMI Win32_ComputerSystem.ComputerName errors as invalid-query on this host).
             snap.System.ComputerName = Environment.MachineName;
+            foreach (var row in WmiHelper.Query("SELECT ChassisTypes FROM Win32_SystemEnclosure"))
+            {
+                if (row["ChassisTypes"] is ushort[] types && types.Length > 0)
+                {
+                    snap.System.IsLaptop = types.Any(t => new ushort[] { 8, 9, 10, 14, 30, 31, 32 }.Contains(t));
+                    snap.System.Chassis = snap.System.IsLaptop ? "Ноутбук / портативный ПК" : "Настольный ПК";
+                }
+            }
             foreach (var row in WmiHelper.Query("SELECT UserFriendlyName FROM WmiMonitorID", 3000, "root\\WMI"))
             {
                 try { if (row["UserFriendlyName"] is ushort[] codes) { string name = new string(codes.Where(c => c != 0).Select(c => (char)c).ToArray()); if (name.Length > 0) snap.System.Monitors.Add(name); } } catch { }

@@ -42,6 +42,9 @@ namespace Burmalk.Views
                 _folderLabel, actions, _status);
             Unloaded += (s, e) => _run?.Cancel();
             LoadDrives();
+            foreach (var saved in App.Store.DiskMeasurements)
+                _history[saved.Root] = (new DiskSpeedResult { ReadMBps = saved.ReadMBps, WriteMBps = saved.WriteMBps, Bytes = saved.Bytes }, saved.TestedUtc.ToLocalTime());
+            ShowSelection();
         }
 
         private void LoadDrives()
@@ -107,6 +110,9 @@ namespace Burmalk.Views
                 var progress = new Progress<string>(text => { if (_run != null) _status.Text = drive.Root + " · " + text; });
                 var result = await Task.Run(() => DiskSpeedTest.Run(folder, _run.Token, progress));
                 DateTime time = DateTime.Now; _history[drive.Root] = (result, time); ShowResult(drive.Root, result, time);
+                App.Store.SaveDiskMeasurement(new Burmalk.Models.DiskMeasurement { Root = drive.Root, VolumeBytes = new DriveInfo(drive.Root).TotalSize,
+                    PhysicalModel = App.Monitor.Storage.PhysicalDrives.FirstOrDefault(d => d.VolumeLetters.Contains(drive.Root.TrimEnd('\\')))?.Model ?? "",
+                    TestedUtc = time.ToUniversalTime(), ReadMBps = result.ReadMBps, WriteMBps = result.WriteMBps, Bytes = result.Bytes });
             }
             catch (OperationCanceledException) { _status.Text = "Тест остановлен. Временный файл удалён."; }
             catch (Exception ex) { _status.Text = "Не удалось проверить " + drive.Root + ": " + ex.Message + "\nЕсли папка недоступна для записи, выберите другую папку на этом диске."; }

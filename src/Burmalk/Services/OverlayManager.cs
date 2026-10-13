@@ -10,6 +10,7 @@ namespace Burmalk.Services
     public static class OverlayManager
     {
         private static DataStore _store;
+        internal static bool Initialized => _store != null;
         private static SystemMonitor _monitor;
         private static DispatcherTimer _timer;
         private static HwndSource _source;

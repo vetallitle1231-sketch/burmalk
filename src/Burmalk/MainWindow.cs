@@ -240,12 +240,15 @@ namespace Burmalk
                 if (Verification.RunGpuOnly)
                 {
                     report = App.Store.Performance;
-                    var gpu = new GpuStressWindow(null, default, true);
-                    var closed = new System.Threading.Tasks.TaskCompletionSource<bool>(); gpu.Closed += (s, e) => closed.TrySetResult(true);
-                    gpu.Show(); await closed.Task;
                     if (report == null) throw new InvalidOperationException("Missing prior system benchmark for GPU-only verification");
-                    report.GpuFps = gpu.AverageFps; report.GpuCompleted = gpu.Completed; report.GpuSeconds = gpu.DurationSeconds; report.RenderTier = gpu.RenderTier;
-                    report.MaxGpuTemp = gpu.MaxGpuTemp; report.MaxGpuMhz = gpu.MaxGpuMhz; App.Store.SavePerformance(report);
+                    var gpu = await NativeGpuWindow.RunAsync(null, default, () =>
+                    {
+                        var sample = App.Monitor.LastSample;
+                        return DateTime.UtcNow.Ticks - sample.TimestampUtc < TimeSpan.TicksPerSecond * 15 && (!double.IsFinite(sample.CpuTempC) || sample.CpuTempC < 95) && (!double.IsFinite(sample.GpuTempC) || sample.GpuTempC < 90);
+                    });
+                    if (!NativeGpuBenchmark.MatchesRenderer(gpu.Renderer, report.GpuModel)) throw new InvalidOperationException("GPU renderer mismatch");
+                    report.GpuFps = gpu.Fps; report.GpuCompleted = gpu.Completed; report.GpuSeconds = gpu.Seconds; report.RenderTier = 2;
+                    report.GpuEngine = NativeGpuBenchmark.Engine; report.GpuRenderer = gpu.Renderer; App.Store.SavePerformance(report);
                 }
                 else report = await rank.RunAsync(false);
                 Verification.VerifyPerformance(report);
