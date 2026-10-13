@@ -19,6 +19,7 @@ namespace Burmalk.Views
         public SettingsView()
         {
             var s=App.Store.Settings; var root=new StackPanel();
+            root.Children.Add(ViewUi.Panel("BURMALK " + App.Version + " — What's New", ViewUi.Text("3D PC VIEW · интерактивная модель с реальными датчиками\nPC PASSPORT · PNG / PDF / буфер обмена\nPC RANK · пять рангов, анимации и виджет на главной")));
             _theme=new ComboBox {ItemsSource=Appearance.Themes,SelectedItem=s.Theme,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,MinWidth=220};
             _compact=Check("Compact cards",s.CompactLayout);
             _dim=new Slider {Minimum=0.1,Maximum=0.9,Value=s.BackgroundDim,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,Width=300};

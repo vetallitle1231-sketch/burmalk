@@ -45,6 +45,13 @@ namespace Burmalk.Views
 
         public void Refresh()
         {
+            var saved = App.Store.Benchmarks;
+            if (!_running && saved != null && saved.MethodVersion == RankMethod.Version && RankMethod.MatchesHardware(saved, App.Monitor.Hardware.Snapshot, PassportService.GpuName()))
+            {
+                if (saved.CpuCompleted) _cpu.Text = saved.CpuMillionOps.ToString("0.00") + " млн операций / с";
+                if (saved.RamCompleted) { _memory.Text = "Хорошо · 128 МиБ · " + saved.RamMegabytesPerSecond.ToString("0") + " MB/s"; _memory.Foreground = Brushes.LimeGreen; }
+                if (saved.GpuCompleted) _gpu.Text = Math.Round(saved.GpuFps * 100) + " баллов · " + saved.GpuFps.ToString("0.0") + " FPS в среднем";
+            }
             var sample = App.Monitor.LastSample;
             _peaks.Text = "Максимум во время последнего теста · CPU " + Fmt.C(_maxCpuTemp) + " / " + MetricView.Number(_maxCpuMhz, "MHz") +
                 " · GPU " + Fmt.C(_maxGpuTemp) + " / " + MetricView.Number(_maxGpuMhz, "MHz");
@@ -67,7 +74,7 @@ namespace Burmalk.Views
 
         private async void RunSystem()
         {
-            if (_running) return;
+            if (_running || !PerformanceTest.TryEnter()) { _details.Text = "Другой бенчмарк уже работает."; return; }
             _running = true; _startSystem.IsEnabled = false; _cancelSystem.IsEnabled = true;
             _cancellation = new CancellationTokenSource();
             _maxCpuTemp = _maxGpuTemp = _maxCpuMhz = _maxGpuMhz = double.NaN;
@@ -77,6 +84,12 @@ namespace Burmalk.Views
             {
                 var report = await BenchmarkRunner.RunSystemAsync(progress, _cancellation.Token);
                 LastReport = report;
+                if (report.MemoryPassed)
+                {
+                    var record = ComponentRecord(); record.CpuMillionOps = report.CpuMillionOpsPerSecond; record.CpuSeconds = report.CpuSeconds; record.CpuCompleted = report.CpuSeconds >= 59;
+                    record.RamMegabytesPerSecond = report.RamMegabytesPerSecond; record.RamCompleted = report.RamMegabytesPerSecond > 0; record.MemoryPassed = report.MemoryPassed; record.MemoryBytesVerified = report.MemoryBytesVerified;
+                    App.Store.SaveComponentBenchmark(record, false);
+                }
                 if (report.MemoryPassed)
                 {
                     _cpu.Text = report.CpuMillionOpsPerSecond.ToString("0.00") + " млн операций / с";
@@ -97,6 +110,7 @@ namespace Burmalk.Views
             {
                 _sampleTimer.Stop(); _running = false; _startSystem.IsEnabled = true; _cancelSystem.IsEnabled = false;
                 _cancellation.Dispose(); _cancellation = null; Refresh();
+                PerformanceTest.Exit();
             }
         }
 
@@ -104,13 +118,27 @@ namespace Burmalk.Views
 
         private void RunGpu()
         {
+            if (_running || !PerformanceTest.TryEnter()) { _gpu.Text = "Другой бенчмарк уже работает."; return; }
+            try {
             _maxCpuTemp = _maxGpuTemp = _maxCpuMhz = _maxGpuMhz = double.NaN;
             var window = new GpuStressWindow(Window.GetWindow(this));
             window.ShowDialog();
+            _maxCpuTemp = window.MaxCpuTemp; _maxGpuTemp = window.MaxGpuTemp; _maxCpuMhz = window.MaxCpuMhz; _maxGpuMhz = window.MaxGpuMhz;
+            if (window.Completed)
+            {
+                var record = ComponentRecord(); record.GpuFps = window.AverageFps; record.GpuSeconds = window.DurationSeconds; record.GpuCompleted = true; record.RenderTier = window.RenderTier;
+                App.Store.SaveComponentBenchmark(record, true);
+            }
             if (window.AverageFps > 0)
                 _gpu.Text = "" + window.ScorePoints + " баллов · " + window.AverageFps.ToString("0.0") + " FPS в среднем\n" + window.SensorSummary;
             else _gpu.Text = (window.FinishReason ?? "Тест завершён без результата") + "\n" + window.SensorSummary;
             Refresh();
+            } finally { PerformanceTest.Exit(); }
         }
+        private static Burmalk.Models.PerformanceRecord ComponentRecord() => new Burmalk.Models.PerformanceRecord
+        {
+            MethodVersion = RankMethod.Version, TestedUtc = DateTime.UtcNow, CpuModel = App.Monitor.Hardware.Snapshot.Cpu.Model,
+            GpuModel = PassportService.GpuName(), RamGb = App.Monitor.Hardware.Snapshot.Ram.TotalGb
+        };
     }
 }

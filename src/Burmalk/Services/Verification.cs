@@ -16,6 +16,8 @@ namespace Burmalk.Services
     {
         public static string DirectoryPath;
         public static bool RequireCpuTemperature;
+        public static bool RunPerformance;
+        public static bool RunGpuOnly;
         public static string PhotoPath;
         public static readonly List<string> Pages=new List<string>();
         public static readonly List<string> Failures=new List<string>();
@@ -46,6 +48,45 @@ namespace Burmalk.Services
             if(DirectoryPath==null)return;
             // Long stress tests are opt-in and must never start during the UI smoke test.
             if(page=="Settings")Click(view,"Save settings");
+            if (page == "Dashboard" && view is Burmalk.Views.DashboardView rankedDashboard && App.Store.Performance != null && PassportService.CurrentRank().Confirmed)
+            {
+                if (Array.IndexOf(rankedDashboard.CurrentOrder, "rank") > Array.IndexOf(rankedDashboard.CurrentOrder, "gpu")) rankedDashboard.MoveCard("rank", "gpu"); rankedDashboard.Refresh();
+                Check(ContainsText(view, PassportService.CurrentRank().Name), "Dashboard rank widget displays the persisted real rank");
+            }
+            if (page == "3D PC VIEW" && view is Burmalk.Views.PcView3D pc3d)
+            {
+                foreach (string part in new[] { "cpu", "gpu", "ram", "board", "disks", "cooling" })
+                { pc3d.SelectPart(part); Check(pc3d.SelectedPart == part, "3D component selection: " + part); }
+                double before = pc3d.CameraDistance; pc3d.Zoom(-1); Check(pc3d.CameraDistance < before, "3D zoom changes camera distance");
+                for (int i = 0; i < 50; i++) pc3d.Zoom(-1);
+                Check(pc3d.CameraDistance == 7, "3D camera cannot pass into the chassis"); pc3d.ResetCamera(); pc3d.SelectPart("gpu");
+            }
+            if (page == "PC PASSPORT" && view is Burmalk.Views.PassportView passport)
+            {
+                passport.Generate();
+                var p = PassportService.Create(true, "Pulse");
+                Check(p.OwnerLabel == "ТВОЙ ПК" && p.Sections.Count == 7, "Passport defaults to private, complete hardware categories");
+                string serialized = JsonSerializer.Serialize(p, new JsonSerializerOptions { IncludeFields = true });
+                Check(!serialized.Contains(Environment.MachineName, StringComparison.OrdinalIgnoreCase), "Public passport excludes the machine name");
+                foreach (string style in new[] { "Pulse", "Aurora", "Graphite" })
+                {
+                    p.Style = style;
+                    var card = PassportExport.Card(p, false); Check(card.PixelWidth == 1600 && card.PixelHeight == 1120, "Passport PNG dimensions: " + style);
+                    PassportExport.Png(card, Path.Combine(DirectoryPath, "Passport-" + style + ".png"));
+                }
+                PassportExport.Png(PassportExport.Card(p, true), Path.Combine(DirectoryPath, "Passport-social.png"));
+                PassportExport.Pdf(p, Path.Combine(DirectoryPath, "Passport.pdf"));
+                Check(new FileInfo(Path.Combine(DirectoryPath, "Passport.pdf")).Length > 5000, "Passport PDF contains rendered hardware pages");
+            }
+            if (page == "PC RANK" && view is Burmalk.Views.PcRankView rank)
+            {
+                Check(!PerformanceTest.Busy, "PC RANK never starts load just by opening its tab");
+                bool reduced = App.Store.Settings.ReducedEffects; App.Store.Settings.ReducedEffects = true;
+                string[] names = { "BRONZE", "SILVER", "GOLD", "DIAMOND", "LEGENDARY" }, letters = { "D", "C", "B", "A", "S" };
+                for (int i = 0; i < names.Length; i++) { rank.Reveal(new PcRankResult { Confirmed = true, Name = names[i], Letter = letters[i], Total = 1000 }); Capture(Application.Current.MainWindow, "Rank-presentation-fixture-" + names[i]); rank.DismissReveal(); }
+                App.Store.Settings.ReducedEffects = reduced; rank.Refresh();
+                if (App.Store.Performance != null && PassportService.CurrentRank().Confirmed) rank.Reveal(PassportService.CurrentRank());
+            }
             if (page == "System Health" && view is Burmalk.Views.HealthView health)
             {
                 // Presentation fixtures use synthetic readings and never change hardware.
@@ -125,6 +166,16 @@ namespace Burmalk.Services
             store.SaveProfile(new GameProfile{GameName="VerificationProfile",OverlayEnabled=false});
             store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN,CpuTempAvg=App.Monitor.LastSample.CpuTempC});store.Save();
             var read=new DataStore(store.RootDir);read.Load();
+            var rankFixture = new PerformanceRecord { MethodVersion = RankMethod.Version, TestedUtc = DateTime.UtcNow, CpuModel = "fixture CPU", GpuModel = "fixture GPU", RamGb = 32,
+                CpuMillionOps = RankMethod.ReferenceCpu, GpuFps = RankMethod.ReferenceGpu, RamMegabytesPerSecond = RankMethod.ReferenceRam, CpuCompleted = true, GpuCompleted = true, RamCompleted = true, MemoryPassed = true,
+                CpuSeconds = 60, GpuSeconds = 120, MemoryBytesVerified = 128L * 1024 * 1024, RenderTier = 2, Status = "Fixture complete" };
+            store.SavePerformance(rankFixture); store.Settings.ReducedEffects = true; store.Settings.PassportHidePersonal = true; store.Settings.PassportStyle = "Aurora"; store.Save();
+            var persistedRank = new DataStore(store.RootDir); persistedRank.Load();
+            Check(RankMethod.Evaluate(persistedRank.Performance).Name == "GOLD", "Confirmed rank survives reopening persisted data");
+            Check(persistedRank.Settings.ReducedEffects && persistedRank.Settings.PassportStyle == "Aurora" && persistedRank.Settings.PassportHidePersonal, "Passport privacy, style and reduced effects survive restart");
+            var partial = new PerformanceRecord { MethodVersion = RankMethod.Version, CpuModel = "fixture CPU", GpuModel = "fixture GPU", CpuCompleted = true, CpuMillionOps = 2 * RankMethod.ReferenceCpu };
+            persistedRank.SaveComponentBenchmark(partial, false);
+            Check(RankMethod.Evaluate(persistedRank.Performance).Name == "GOLD", "A separate partial benchmark never replaces the full-suite rank");
             Check(read.Settings.UpdateIntervalMs==1700,"Settings round trip");
             Check(read.Settings.CpuFanBoardId == "board-fixture" && read.Settings.CpuFanControlId == "pwm2" && read.Settings.CpuFanRpmSensorId == "rpm4", "CPU fan PWM and RPM identities survive settings reload without applying a fan speed");
             Check(read.Settings.DashboardVisible.Length==2&&read.Settings.DashboardVisible[1]=="music"&&read.Settings.StartWithWindows&&read.Settings.GameLibraryPaths.Length==1,"Experimental dashboard, startup, and game-list settings round trip");
@@ -160,6 +211,11 @@ namespace Burmalk.Services
             Check(read.Sessions.Last().CpuTempAvg.Equals(App.Monitor.LastSample.CpuTempC),"CPU temperature session round trip");
             Check(double.IsNaN(GpuSampler.ParseDouble("N/A"))&&GpuSampler.ParseDouble("42.5")==42.5,"GPU parsing");
             Check(App.Monitor.Hub.CpuPercent.Count>2,"Live sampling advances history");
+            if (App.Store.Performance != null && RankMethod.Complete(App.Store.Performance))
+            {
+                var reopened = new DataStore(App.Store.RootDir); reopened.Load();
+                Check(RankMethod.Evaluate(reopened.Performance).Name == PassportService.CurrentRank().Name, "Real rank and passport agree after reloading data");
+            }
             var processes=ProcessSnapshot.Capture();
             Check(processes.Count>0&&processes.Any(p=>p.MemoryMb>0),"Process snapshot contains real memory measurements");
             var analysis=StorageAnalyzer.Scan(Path.Combine(DirectoryPath,"persistence-test"),System.Threading.CancellationToken.None);
@@ -197,6 +253,20 @@ namespace Burmalk.Services
             Check(!string.IsNullOrWhiteSpace(OverlayManager.HotkeyStatus),"Overlay hotkey status is available");
             var options=new JsonSerializerOptions{IncludeFields=true,WriteIndented=true,NumberHandling=JsonNumberHandling.AllowNamedFloatingPointLiterals};
             File.WriteAllText(Path.Combine(DirectoryPath,"verification.json"),JsonSerializer.Serialize(new{Pages,Failures,Sample=App.Monitor.LastSample,CpuSensorStatus=App.Monitor.CpuSensors.Status,CpuSensors=App.Monitor.CpuSensors.DescribeSensors(),FrequencySource=App.Monitor.CpuSensors.FrequencySource,Benchmark=Burmalk.Views.BenchmarkView.LastReport,Hardware=App.Monitor.Hardware.Snapshot,AI=App.Ai.Status},options));
+        }
+
+        public static void VerifyPerformance(PerformanceRecord result)
+        {
+            var options = new JsonSerializerOptions { IncludeFields = true, WriteIndented = true, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals };
+            File.WriteAllText(Path.Combine(DirectoryPath, "performance-run.json"), JsonSerializer.Serialize(result, options));
+            Check(RankMethod.Complete(result), "Full GPU 120s / CPU 60s / RAM 128 MiB run completed");
+            if (result == null || !RankMethod.Complete(result)) return;
+            var read = new DataStore(App.Store.RootDir); read.Load();
+            Check(read.Performance != null && read.Performance.GpuFps == result.GpuFps && read.Performance.CpuMillionOps == result.CpuMillionOps,
+                "Real performance measurements survive reopening DataStore");
+            var passport = PassportService.Create(true, "Pulse");
+            PassportExport.Png(PassportExport.Card(passport, false), Path.Combine(DirectoryPath, "Passport-tested.png"));
+            PassportExport.Pdf(passport, Path.Combine(DirectoryPath, "Passport-tested.pdf"));
         }
     }
 }

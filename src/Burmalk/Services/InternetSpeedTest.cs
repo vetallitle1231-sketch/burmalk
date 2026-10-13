@@ -101,7 +101,7 @@ namespace Burmalk.Services
         private static HttpRequestMessage Request(HttpMethod method, string url)
         {
             var request = new HttpRequestMessage(method, url);
-            request.Headers.UserAgent.ParseAdd("Burmalk/1.1.8");
+            request.Headers.UserAgent.ParseAdd("Burmalk/" + typeof(InternetSpeedTest).Assembly.GetName().Version?.ToString(3));
             request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
             request.Headers.AcceptEncoding.ParseAdd("identity");
             return request;

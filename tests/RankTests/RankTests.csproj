@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Burmalk/Models/PerformanceRecord.cs" Link="PerformanceRecord.cs" />
+    <Compile Include="../../src/Burmalk/Models/HardwareInfo.cs" Link="HardwareInfo.cs" />
+    <Compile Include="../../src/Burmalk/Services/RankMethod.cs" Link="RankMethod.cs" />
+    <Compile Include="../../src/Burmalk/Services/BenchmarkRunner.cs" Link="BenchmarkRunner.cs" />
+  </ItemGroup>
+</Project>

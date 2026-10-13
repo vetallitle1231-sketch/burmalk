@@ -1,6 +1,8 @@
-#define AppVersion "1.1.8"
+#ifndef AppVersion
+  #define AppVersion "1.1.9"
+#endif
 #ifndef PublishDir
-  #define PublishDir "..\.build\publish-v1.1.8"
+  #define PublishDir "..\.build\publish-v1.1.9"
 #endif
 [Setup]
 AppId=Burmalk.Experimental.App
@@ -40,8 +42,12 @@ Source: "..\.build\tools\PawnIO_setup.exe"; DestDir: "{app}\Support"; Flags: ign
 Source: "..\docs\CPU-SENSORS.txt"; DestDir: "{app}\Support"; Flags: ignoreversion
 
 [Icons]
-Name: "{userdesktop}\Burmalk Experimental 1.1.8"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
-Name: "{userprograms}\Burmalk Experimental 1.1.8"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
+Name: "{userdesktop}\Burmalk Experimental {#AppVersion}"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
+Name: "{userprograms}\Burmalk Experimental {#AppVersion}"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
+
+[InstallDelete]
+Type: files; Name: "{userdesktop}\Burmalk Experimental 1.1.8.lnk"
+Type: files; Name: "{userprograms}\Burmalk Experimental 1.1.8.lnk"
 
 [Run]
 Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; Description: "Запустить Burmalk экспериментальную версию"; Flags: nowait postinstall skipifsilent

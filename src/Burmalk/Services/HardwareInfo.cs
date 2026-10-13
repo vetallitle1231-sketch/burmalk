@@ -120,7 +120,7 @@ namespace Burmalk.Services
                 snap.Ram.TotalGb = kb > 0 ? kb / (1024.0 * 1024) : 0;
             }
 
-            var modules = WmiHelper.Query("SELECT Manufacturer, PartNumber, Capacity, Speed, DeviceLocator FROM Win32_PhysicalMemory");
+            var modules = WmiHelper.Query("SELECT Manufacturer, PartNumber, Capacity, Speed, ConfiguredClockSpeed, SMBIOSMemoryType, DeviceLocator FROM Win32_PhysicalMemory");
             foreach (var m in modules)
             {
                 var mod = new RamModule
@@ -136,12 +136,16 @@ namespace Burmalk.Services
                 }
                 catch { }
                 try { mod.SpeedMhz = (int)Convert.ToInt64(m["Speed"]); } catch { }
+                try { int configured = Convert.ToInt32(m["ConfiguredClockSpeed"]); if (configured > 0) mod.SpeedMhz = configured; } catch { }
+                try { mod.MemoryType = Convert.ToInt32(m["SMBIOSMemoryType"]) switch { 20 => "DDR", 21 => "DDR2", 24 => "DDR3", 26 => "DDR4", 27 => "LPDDR", 28 => "LPDDR2", 29 => "LPDDR3", 30 => "LPDDR4", 34 => "DDR5", 35 => "LPDDR5", _ => "Unavailable" }; } catch { }
                 snap.Ram.Modules.Add(mod);
                 if (mod.SpeedMhz > snap.Ram.MaxSpeedMhz) snap.Ram.MaxSpeedMhz = mod.SpeedMhz;
             }
 
             if (snap.Ram.TotalGb <= 0 && snap.Ram.Modules.Count > 0)
                 snap.Ram.TotalGb = snap.Ram.Modules.Sum(m => m.CapacityGb);
+            snap.Ram.MemoryType = string.Join(" / ", snap.Ram.Modules.Select(m => m.MemoryType).Where(t => t != "Unavailable").Distinct());
+            if (snap.Ram.MemoryType.Length == 0) snap.Ram.MemoryType = "Unavailable";
         }
 
         private void ProbeMotherboard(HardwareSnapshot snap)
@@ -177,6 +181,14 @@ namespace Burmalk.Services
             // Machine name: Environment.MachineName is the canonical, always-available
             // source (WMI Win32_ComputerSystem.ComputerName errors as invalid-query on this host).
             snap.System.ComputerName = Environment.MachineName;
+            foreach (var row in WmiHelper.Query("SELECT UserFriendlyName FROM WmiMonitorID", 3000, "root\\WMI"))
+            {
+                try { if (row["UserFriendlyName"] is ushort[] codes) { string name = new string(codes.Where(c => c != 0).Select(c => (char)c).ToArray()); if (name.Length > 0) snap.System.Monitors.Add(name); } } catch { }
+            }
+            foreach (var row in WmiHelper.Query("SELECT CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate FROM Win32_VideoController", 3000))
+            {
+                try { int w = Convert.ToInt32(row["CurrentHorizontalResolution"]), h = Convert.ToInt32(row["CurrentVerticalResolution"]), hz = Convert.ToInt32(row["CurrentRefreshRate"]); if (w > 0 && h > 0) snap.System.Monitors.Add(w + " × " + h + (hz > 1 ? " · " + hz + " Hz" : "")); } catch { }
+            }
 
             var os = WmiHelper.Query("SELECT Caption, Version, BuildNumber, LastBootUpTime, OSArchitecture FROM Win32_OperatingSystem");
             if (os.Count > 0)

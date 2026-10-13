@@ -13,7 +13,7 @@
     <Description>Burmalk PC monitoring dashboard</Description>
     <ApplicationIcon>Assets/Burmalk.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.1.8</Version>
+    <Version>1.1.9</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>

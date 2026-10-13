@@ -10,3 +10,5 @@ dist/*.exe
 settings.json
 sessions.json
 profiles.json
+performance.json
+benchmarks.json

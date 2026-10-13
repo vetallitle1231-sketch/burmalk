@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
+using System.Threading;
 using Burmalk.Services;
 
 namespace Burmalk.Views
@@ -22,35 +23,49 @@ namespace Burmalk.Views
         private DateTime _lastFrameWindow = DateTime.UtcNow;
         private double _fps, _maxCpuTemp = double.NaN, _maxGpuTemp = double.NaN, _maxCpuMhz = double.NaN, _maxGpuMhz = double.NaN;
         private bool _finished;
+        private TimeSpan _lastRenderingTime = TimeSpan.MinValue;
+        private readonly CancellationToken _cancellation;
+        private readonly bool _autoClose;
+        public bool Completed { get; private set; }
+        public double DurationSeconds { get; private set; }
+        public int RenderTier { get; private set; }
+        public double MaxCpuTemp => _maxCpuTemp;
+        public double MaxGpuTemp => _maxGpuTemp;
+        public double MaxCpuMhz => _maxCpuMhz;
+        public double MaxGpuMhz => _maxGpuMhz;
         public double AverageFps { get; private set; }
         public long ScorePoints => (long)Math.Round(AverageFps * 100);
         public string SensorSummary => "GPU max " + Fmt.C(_maxGpuTemp) + " / " + MetricView.Number(_maxGpuMhz, "MHz") +
             " · CPU max " + Fmt.C(_maxCpuTemp) + " / " + MetricView.Number(_maxCpuMhz, "MHz");
         public string FinishReason { get; private set; }
 
-        public GpuStressWindow(Window owner)
+        public GpuStressWindow(Window owner, CancellationToken cancellation = default, bool autoClose = false)
         {
-            Owner = owner;
+            _cancellation = cancellation; _autoClose = autoClose;
+            Owner = Verification.DirectoryPath != null ? null : owner;
             Title = "Burmalk · двухминутный 3D-тест GPU";
             Width = 1180; Height = 760; MinWidth = 850; MinHeight = 600;
+            ResizeMode = ResizeMode.NoResize;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            if (Verification.DirectoryPath != null) { WindowStartupLocation = WindowStartupLocation.Manual; Left = 25; Top = 25; ShowActivated = true; }
             Background = new SolidColorBrush(Color.FromRgb(12, 18, 30));
 
             var scene = CreateScene();
             var visual = new ModelVisual3D { Content = scene };
             var camera = new PerspectiveCamera(new Point3D(0, 0, 13), new Vector3D(0, 0, -1), new Vector3D(0, 1, 0), 52);
-            var viewport = new Viewport3D { Camera = camera, ClipToBounds = true, Children = { visual } };
+            var viewport = new Viewport3D { Width = 960, Height = 540, Camera = camera, ClipToBounds = true, Children = { visual }, IsHitTestVisible = false };
             var root = new DockPanel();
             var controls = new StackPanel();
             controls.Children.Add(new TextBlock { Text = "BURMALK · НАГРУЗКА GPU", FontSize = 24, FontWeight = FontWeights.Bold, Margin = new Thickness(14, 14, 14, 0) });
             controls.Children.Add(new TextBlock { Text = "2 минуты · останови тест, если компьютер перегревается. Автостоп: GPU 90 °C, CPU 95 °C.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(14, 4, 14, 0) });
             controls.Children.Add(_status); controls.Children.Add(_metrics); controls.Children.Add(_cancel);
-            DockPanel.SetDock(controls, Dock.Top); root.Children.Add(controls); root.Children.Add(viewport); Content = root;
+            DockPanel.SetDock(controls, Dock.Top); root.Children.Add(controls); root.Children.Add(new Viewbox { Child = viewport, Stretch = Stretch.Uniform }); Content = root;
 
             _cancel.Click += CancelClick;
             _timer.Tick += (s, e) => Tick();
             Loaded += (s, e) =>
             {
+                RenderTier = RenderCapability.Tier >> 16;
                 if ((RenderCapability.Tier >> 16) == 0)
                 {
                     FinishReason = "Аппаратное 3D-ускорение недоступно; оценка GPU не рассчитана.";
@@ -58,6 +73,7 @@ namespace Burmalk.Views
                     _cancel.Content = "Закрыть";
                     _cancel.Click -= CancelClick;
                     _cancel.Click += (s2, e2) => Close();
+                    if (_autoClose) Dispatcher.BeginInvoke(new Action(Close));
                     return;
                 }
                 CompositionTarget.Rendering += OnRendering;
@@ -65,7 +81,7 @@ namespace Burmalk.Views
                 _status.Text = "Сцена рендерится · 00:00 / 02:00";
                 _metrics.Text = "Собираю кадры и пиковые значения датчиков…";
             };
-            Closed += (s, e) => { CompositionTarget.Rendering -= OnRendering; _timer.Stop(); };
+            Closed += (s, e) => { CompositionTarget.Rendering -= OnRendering; _timer.Stop(); _elapsed.Stop(); if (!_finished) FinishReason = "Окно теста закрыто пользователем"; };
         }
 
         private void CancelClick(object sender, RoutedEventArgs e) => Finish("Остановлено пользователем");
@@ -79,6 +95,7 @@ namespace Burmalk.Views
             var spin = new RotateTransform3D(_rotation);
             var root = new Model3DGroup { Transform = spin };
             var mesh = Sphere(0.33, 28, 16);
+            mesh.Freeze();
             var palette = new[] { Colors.DeepSkyBlue, Colors.MediumPurple, Colors.Turquoise, Colors.Gold, Colors.Coral, Colors.LimeGreen };
             for (int x = 0; x < 8; x++) for (int y = 0; y < 5; y++) for (int z = 0; z < 3; z++)
             {
@@ -122,19 +139,28 @@ namespace Burmalk.Views
 
         private void OnRendering(object sender, EventArgs e)
         {
-            _rotation.Angle = (_rotation.Angle + 0.18) % 360;
+            if (e is RenderingEventArgs frame)
+            {
+                if (frame.RenderingTime == _lastRenderingTime) return;
+                _lastRenderingTime = frame.RenderingTime;
+            }
+            _rotation.Angle = (_elapsed.Elapsed.TotalSeconds * 18) % 360;
             _totalFrames++; _windowFrames++;
         }
 
         private void Tick()
         {
+            if (_cancellation.IsCancellationRequested) { Finish("Остановлено пользователем"); return; }
+            if (WindowState == WindowState.Minimized) { Finish("Тест остановлен: свёрнутое окно не даёт сопоставимого GPU-результата."); return; }
             var now = DateTime.UtcNow;
             double seconds = Math.Max(0.1, (now - _lastFrameWindow).TotalSeconds);
             _fps = _windowFrames / seconds; _windowFrames = 0; _lastFrameWindow = now;
             var sample = App.Monitor.LastSample;
+            if (DateTime.UtcNow.Ticks - sample.TimestampUtc > TimeSpan.TicksPerSecond * 15) { Finish("Тест остановлен: мониторинг не обновляет датчики."); return; }
             Max(ref _maxCpuTemp, sample.CpuTempC); Max(ref _maxGpuTemp, sample.GpuTempC);
             Max(ref _maxCpuMhz, sample.CpuGhz * 1000); Max(ref _maxGpuMhz, sample.GpuClockMhz);
             double elapsed = _elapsed.Elapsed.TotalSeconds;
+            if (Verification.DirectoryPath != null && elapsed >= 10 && elapsed < 11.1) Verification.Capture(this, "GPU-stress-active");
             _status.Text = "Сцена рендерится · " + TimeSpan.FromSeconds(elapsed).ToString(@"mm\:ss") + " / 02:00 · " + _fps.ToString("0") + " FPS";
             _metrics.Text = "GPU: макс. " + Fmt.C(_maxGpuTemp) + " · " + MetricView.Number(_maxGpuMhz, "MHz") +
                 "\nCPU: макс. " + Fmt.C(_maxCpuTemp) + " · " + MetricView.Number(_maxCpuMhz, "MHz");
@@ -142,6 +168,8 @@ namespace Burmalk.Views
             if (double.IsFinite(sample.CpuTempC) && sample.CpuTempC >= 95) { Finish("Автостоп: температура CPU достигла 95 °C"); return; }
             if (elapsed >= 120)
             {
+                DurationSeconds = elapsed;
+                Completed = true;
                 AverageFps = _totalFrames / elapsed;
                 FinishReason = "Завершено · средняя частота рендеринга: " + AverageFps.ToString("0.0") + " FPS";
                 _finished = true;
@@ -150,6 +178,7 @@ namespace Burmalk.Views
                 _cancel.Click -= CancelClick;
                 _cancel.Click += (s, e) => Close();
                 _timer.Stop(); CompositionTarget.Rendering -= OnRendering;
+                if (_autoClose) Close();
             }
         }
 
@@ -164,6 +193,7 @@ namespace Burmalk.Views
             _finished = true; FinishReason = reason; _elapsed.Stop(); _timer.Stop(); CompositionTarget.Rendering -= OnRendering;
             _status.Text = reason; _cancel.Content = "Закрыть";
             _cancel.Click -= CancelClick; _cancel.Click += (s, e) => Close();
+            Close();
         }
     }
 }

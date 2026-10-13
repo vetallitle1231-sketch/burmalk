@@ -17,7 +17,13 @@ namespace Burmalk.Views
     /// <summary>A compact, movable home HUD. Widget order belongs to the user's settings.</summary>
     public class DashboardView : UserControl, IRefreshable
     {
-        public static readonly string[] DefaultOrder = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes" };
+        public static readonly string[] DefaultOrder = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes", "rank" };
+        private readonly Burmalk.Controls.RankEmblem _rankEmblem = new Burmalk.Controls.RankEmblem { Width = 100, Height = 100 };
+        private readonly TextBlock _rankName = ViewUi.Text("ПОЛУЧИТЬ РАНГ");
+        private readonly TextBlock _rankDetail = ViewUi.Text("Пройди полный тест PC RANK");
+        private readonly Burmalk.Controls.RankEmblem _rankHeaderEmblem = new Burmalk.Controls.RankEmblem { Width = 60, Height = 60 };
+        private readonly TextBlock _rankHeaderText = ViewUi.Text("");
+        private readonly Button _rankHeaderButton = new Button { Visibility = Visibility.Collapsed, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 3, 0, 0) };
         private readonly Canvas _grid = new Canvas { Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
         private readonly ScrollViewer _workspace = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         private readonly Dictionary<string, Border> _cards = new Dictionary<string, Border>();
@@ -57,7 +63,12 @@ namespace Burmalk.Views
             var hero = new Grid(); hero.ColumnDefinitions.Add(new ColumnDefinition()); hero.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(280) });
             var introduction = new StackPanel { Margin = new Thickness(0, 0, 22, 0), VerticalAlignment = VerticalAlignment.Center };
             introduction.Children.Add(BrandVisuals.Badge("BURMALK  /  PULSE"));
-            introduction.Children.Add(new TextBlock { Text = "Твой ПК", FontSize = 34, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 12) });
+            var titleRow = new DockPanel();
+            var headerRank = new DockPanel(); DockPanel.SetDock(_rankHeaderEmblem, Dock.Left); headerRank.Children.Add(_rankHeaderEmblem);
+            _rankHeaderText.FontSize = 11; _rankHeaderText.VerticalAlignment = VerticalAlignment.Center; headerRank.Children.Add(_rankHeaderText);
+            _rankHeaderButton.Content = headerRank; _rankHeaderButton.Click += (s, e) => (Window.GetWindow(this) as MainWindow)?.NavigateTo("PC RANK");
+            DockPanel.SetDock(_rankHeaderButton, Dock.Right); titleRow.Children.Add(_rankHeaderButton);
+            titleRow.Children.Add(new TextBlock { Text = "Твой ПК", FontSize = 34, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 12) }); introduction.Children.Add(titleRow);
             _machine.FontSize = 11; _machine.TextWrapping = TextWrapping.NoWrap; _machine.TextTrimming = TextTrimming.CharacterEllipsis; introduction.Children.Add(_machine);
             hero.Children.Add(introduction);
             var pulse = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
@@ -87,6 +98,16 @@ namespace Burmalk.Views
             AddSimple("music", "СЕЙЧАС ИГРАЕТ", "♫", ViewUi.Purple, _musicArtwork, _musicValue, _musicDetail, _musicSource);
             AddSimple("system", "СИСТЕМА", "◇", ViewUi.Blue, _systemValue, _systemDetail);
             AddSimple("processes", "ПРОЦЕССЫ", "☷", ViewUi.Gold, _processValue, _processDetail);
+            var rankBody = new DockPanel(); DockPanel.SetDock(_rankEmblem, Dock.Left); rankBody.Children.Add(_rankEmblem);
+            var rankInfo = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0, 0, 0) };
+            _rankName.FontSize = 15; _rankName.FontWeight = FontWeights.SemiBold; _rankDetail.FontSize = 10;
+            rankInfo.Children.Add(_rankName); rankInfo.Children.Add(_rankDetail); rankBody.Children.Add(rankInfo);
+            AddSimple("rank", "MY PC RANK", "✦", ViewUi.Purple, rankBody, ViewUi.Button("ПОЛУЧИТЬ РАНГ / ТЕСТ", () => (Window.GetWindow(this) as MainWindow)?.NavigateTo("PC RANK")));
+            if (!App.Store.Settings.RankWidgetIntroduced)
+            {
+                App.Store.Settings.DashboardVisible = (App.Store.Settings.DashboardVisible ?? DefaultOrder).Concat(new[] { "rank" }).Distinct().ToArray();
+                App.Store.Settings.RankWidgetIntroduced = true; App.Store.Save();
+            }
 
             foreach (string id in App.Store.Settings.DashboardLayout ?? Array.Empty<string>())
                 if (_cards.ContainsKey(id) && !_order.Contains(id)) _order.Add(id);
@@ -121,6 +142,7 @@ namespace Burmalk.Views
             var tools = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
             var configure = ViewUi.Button("＋  Виджеты", () => controls.Visibility = controls.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible);
             tools.Children.Add(configure);
+            tools.Children.Add(ViewUi.Button("PC RANK  ✦", () => (Window.GetWindow(this) as MainWindow)?.NavigateTo("PC RANK")));
             tools.Children.Add(ViewUi.Button("Игры  ↗", () => (Window.GetWindow(this) as MainWindow)?.NavigateTo("Gaming")));
             var benchmark = ViewUi.Button("Проверить ПК  ↗", () => (Window.GetWindow(this) as MainWindow)?.NavigateTo("Benchmark"));
             benchmark.SetResourceReference(Button.BackgroundProperty, "Accent"); benchmark.SetResourceReference(Button.ForegroundProperty, "AccentInk"); tools.Children.Add(benchmark);
@@ -261,7 +283,7 @@ namespace Burmalk.Views
         {
             "cpu" => "Процессор", "gpu" => "Видеокарта", "ram" => "Память", "disk" => "Диски",
             "network" => "Сеть", "game" => "Игра", "music" => "Музыка", "system" => "Система",
-            "processes" => "Процессы", _ => id
+            "processes" => "Процессы", "rank" => "MY PC RANK", _ => id
         };
 
         private void WidgetVisibilityChanged(object sender, RoutedEventArgs e)
@@ -310,6 +332,13 @@ namespace Burmalk.Views
 
         public void Refresh()
         {
+            var rank = PassportService.CurrentRank(); _rankEmblem.Rank = rank;
+            _rankHeaderEmblem.Rank = rank; _rankHeaderButton.Visibility = rank.Confirmed ? Visibility.Visible : Visibility.Collapsed;
+            _rankHeaderText.Text = rank.Confirmed ? rank.Name + "\n" + Math.Floor(rank.Total).ToString("0") + " баллов" : "";
+            _rankHeaderButton.ToolTip = rank.Confirmed ? "PC RANK · " + App.Store.Performance.TestedUtc.ToLocalTime().ToString("dd.MM.yyyy") : null;
+            _rankName.Text = rank.Confirmed ? rank.Name + " / " + rank.Letter : "ПОЛУЧИТЬ РАНГ";
+            _rankName.Foreground = new SolidColorBrush(Burmalk.Controls.RankEmblem.ColorFor(rank.Name));
+            _rankDetail.Text = rank.Confirmed ? Math.Floor(rank.Total).ToString("0") + " баллов\n" + App.Store.Performance.TestedUtc.ToLocalTime().ToString("dd.MM.yyyy") : rank.Reason;
             var sample = App.Monitor.LastSample;
             foreach (var update in _updates) update(sample);
             foreach (var graph in _graphs) graph.InvalidateVisual();

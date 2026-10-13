@@ -35,7 +35,7 @@ namespace Burmalk
 
         public MainWindow()
         {
-            Title = App.IsExperimentalProfile ? "Burmalk 1.1.8 · экспериментальная" : "Burmalk";
+            Title = "Burmalk " + App.Version + (App.IsExperimentalProfile ? " · экспериментальная" : "");
             Icon = new BitmapImage(new Uri("pack://application:,,,/Assets/Burmalk.ico"));
             Width = 1440;
             Height = 940;
@@ -48,7 +48,7 @@ namespace Burmalk
 
             // Build the tab views once; keep one instance per tab (cheap, and they
             // hold no heavyweight state beyond the shared monitor buffers).
-            var labels = new[] { "Dashboard", "CPU", "GPU", "RAM", "Storage", "Disk activity", "Network", "Processes", "Hardware", "System Health", "Gaming", "Gaming History", "AI Monitor", "Benchmark", "Settings", "OVERCLOCK" };
+            var labels = new[] { "Dashboard", "CPU", "GPU", "RAM", "Storage", "Disk activity", "Network", "Processes", "Hardware", "System Health", "Gaming", "Gaming History", "AI Monitor", "Benchmark", "Settings", "OVERCLOCK", "3D PC VIEW", "PC PASSPORT", "PC RANK" };
             _views = new UserControl[]
             {
                 new DashboardView(),
@@ -66,7 +66,7 @@ namespace Burmalk
                 new AiView(),
                 new BenchmarkView(),
                 new SettingsView(),
-                new OverclockView()
+                new OverclockView(), new PcView3D(), new PassportView(), new PcRankView()
             };
 
             _nav = new ListBox
@@ -74,8 +74,8 @@ namespace Burmalk
                 Margin = new Thickness(14, 8, 14, 8),
                 ItemContainerStyle = app.TryFindResource("NavItem") as Style
             };
-            var captions = new[] { "Обзор", "Процессор", "Видеокарта", "Оперативная память", "Хранилище", "Скорость дисков", "Сеть", "Процессы", "Комплектующие", "Состояние ПК", "Игровая библиотека", "История игр", "AI Monitor", "Бенчмарк", "Настройки", "OVERCLOCK" };
-            var glyphs = new[] { "\uE80F", "\uE950", "\uE7F4", "\uE964", "\uEDA2", "\uE9D9", "\uE701", "\uE9D9", "\uE770", "\uE95E", "\uE7FC", "\uE81C", "\uE99A", "\uE945", "\uE713", "\uE945" };
+            var captions = new[] { "Обзор", "Процессор", "Видеокарта", "Оперативная память", "Хранилище", "Скорость дисков", "Сеть", "Процессы", "Комплектующие", "Состояние ПК", "Игровая библиотека", "История игр", "AI Monitor", "Бенчмарк", "Настройки", "OVERCLOCK", "3D PC VIEW", "PC PASSPORT", "PC RANK" };
+            var glyphs = new[] { "\uE80F", "\uE950", "\uE7F4", "\uE964", "\uEDA2", "\uE9D9", "\uE701", "\uE9D9", "\uE770", "\uE95E", "\uE7FC", "\uE81C", "\uE99A", "\uE945", "\uE713", "\uE945", "\uE7F8", "\uE8A5", "\uE734" };
             for (int i = 0; i < labels.Length; i++)
                 _nav.Items.Add(new ListBoxItem { Tag = labels[i], ToolTip = captions[i], Content = BrandVisuals.Navigation(glyphs[i], captions[i]),
                     Style = app.TryFindResource(labels[i] == "OVERCLOCK" ? "OverclockNavItem" : "NavItem") as Style });
@@ -101,7 +101,7 @@ namespace Burmalk
             navigation.Children.Add(brand);
             Grid.SetRow(_nav, 1);
             var footer = new StackPanel { Margin = new Thickness(0, 10, 0, 6) };
-            var edition = BrandVisuals.Badge(App.IsExperimentalProfile ? "EXPERIMENTAL  /  1.1.8" : "BURMALK  /  DESKTOP"); edition.Margin = new Thickness(22, 0, 0, 12); footer.Children.Add(edition);
+            var edition = BrandVisuals.Badge((App.IsExperimentalProfile ? "EXPERIMENTAL  /  " : "BURMALK  /  ") + App.Version); edition.Margin = new Thickness(22, 0, 0, 12); footer.Children.Add(edition);
             footer.Children.Add(_startupButton); Grid.SetRow(footer, 2);
             _startupButton.Click += ToggleStartup;
             navigation.Children.Add(_nav);
@@ -139,6 +139,7 @@ namespace Burmalk
                 catch { }
                 try { if (_selftest != null) _selftest.Stop(); }
                 catch { }
+                foreach (var view in _views) if (view is PcRankView rank) rank.Cancel();
             };
         }
 
@@ -170,6 +171,7 @@ namespace Burmalk
         private void Show(int index)
         {
             if (index < 0 || index >= _views.Length) return;
+            _nav.ScrollIntoView(_nav.Items[index]);
             _pageTitle.Text = "CONTROL ROOM   /   " + ((_nav.Items[index] as ListBoxItem)?.ToolTip?.ToString() ?? NavLabel(index));
             foreach (UIElement child in _content.Children)
                 if (child is ScrollViewer previous) previous.Content = null;
@@ -221,11 +223,43 @@ namespace Burmalk
                     Width=1000;Height=650;
                     Verification.Capture(this,"Dashboard-compact");
                     Verification.Complete();
-                    if (exit) Close();
+                    if (Verification.RunPerformance || Verification.RunGpuOnly) _ = VerifyPerformanceAsync(exit);
+                    else if (exit) Close();
                     // "navigate" (no -exit): stop the timer and stay open on the last tab.
                 }
             };
             _selftest.Start();
+        }
+
+        private async System.Threading.Tasks.Task VerifyPerformanceAsync(bool exit)
+        {
+            try
+            {
+                NavigateTo("PC RANK"); var rank = (PcRankView)_views[18];
+                Burmalk.Models.PerformanceRecord report;
+                if (Verification.RunGpuOnly)
+                {
+                    report = App.Store.Performance;
+                    var gpu = new GpuStressWindow(null, default, true);
+                    var closed = new System.Threading.Tasks.TaskCompletionSource<bool>(); gpu.Closed += (s, e) => closed.TrySetResult(true);
+                    gpu.Show(); await closed.Task;
+                    if (report == null) throw new InvalidOperationException("Missing prior system benchmark for GPU-only verification");
+                    report.GpuFps = gpu.AverageFps; report.GpuCompleted = gpu.Completed; report.GpuSeconds = gpu.DurationSeconds; report.RenderTier = gpu.RenderTier;
+                    report.MaxGpuTemp = gpu.MaxGpuTemp; report.MaxGpuMhz = gpu.MaxGpuMhz; App.Store.SavePerformance(report);
+                }
+                else report = await rank.RunAsync(false);
+                Verification.VerifyPerformance(report);
+                NavigateTo("PC PASSPORT"); ((PassportView)_views[17]).Generate(); Verification.Capture(this, "Passport-after-benchmark");
+                NavigateTo("PC RANK"); Verification.Capture(this, "Rank-after-benchmark");
+                rank.Reveal(PassportService.CurrentRank());
+                await System.Threading.Tasks.Task.Delay(1800);
+                Verification.Capture(this, "Rank-real-reveal"); rank.DismissReveal();
+                NavigateTo("Dashboard"); Width = 1440; Height = 940;
+                var dashboard = (DashboardView)_views[0]; dashboard.MoveCard("rank", "gpu"); dashboard.Refresh();
+                Verification.Capture(this, "Dashboard-confirmed-rank");
+            }
+            catch (Exception ex) { Verification.Failures.Add("Performance verification: " + ex); }
+            finally { NavigateTo("Dashboard"); Verification.Complete(); if (exit) Close(); }
         }
     }
 }

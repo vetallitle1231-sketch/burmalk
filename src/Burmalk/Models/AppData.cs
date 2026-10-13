@@ -17,6 +17,10 @@ namespace Burmalk.Models
         public string BackgroundImageName = "";
         public double BackgroundDim = 0.5;
         public bool CompactLayout;
+        public bool ReducedEffects;
+        public string PassportStyle = "Pulse";
+        public bool PassportHidePersonal = true;
+        public bool RankWidgetIntroduced;
         public string[] DashboardLayout = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes" };
         public string[] DashboardVisible = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes" };
         public Dictionary<string, DashboardPosition> DashboardPositions = new Dictionary<string, DashboardPosition>();

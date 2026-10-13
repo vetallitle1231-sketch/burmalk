@@ -29,6 +29,7 @@ namespace Burmalk.Models
         public int CapacityGb;
         public int SpeedMhz;
         public string Slot = "Unavailable";
+        public string MemoryType = "Unavailable";
     }
 
     public class RamHardware
@@ -36,6 +37,7 @@ namespace Burmalk.Models
         public double TotalGb;
         public List<RamModule> Modules = new List<RamModule>();
         public int MaxSpeedMhz;
+        public string MemoryType = "Unavailable";
     }
 
     public class MotherboardHardware
@@ -55,6 +57,7 @@ namespace Burmalk.Models
         public string OsBuild = "Unavailable";
         public int UptimeSeconds;
         public string Architecture = "Unavailable";
+        public List<string> Monitors = new List<string>();
     }
 
     public class HardwareSnapshot

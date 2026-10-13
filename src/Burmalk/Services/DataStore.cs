@@ -23,6 +23,8 @@ namespace Burmalk.Services
         };
 
         public AppSettings Settings { get; private set; } = new AppSettings();
+        public PerformanceRecord Performance { get; private set; }
+        public PerformanceRecord Benchmarks { get; private set; }
         public List<GameSession> Sessions { get; private set; } = new List<GameSession>();
         public Dictionary<string, GameProfile> Profiles { get; private set; } = new Dictionary<string, GameProfile>();
 
@@ -53,6 +55,8 @@ namespace Burmalk.Services
                     }
                 }
                 Settings = ReadJson<AppSettings>(SettingsPath) ?? new AppSettings();
+                Performance = ReadJson<PerformanceRecord>(Path.Combine(RootDir, "performance.json"));
+                Benchmarks = ReadJson<PerformanceRecord>(Path.Combine(RootDir, "benchmarks.json"));
                 Settings.DashboardVisible ??= new AppSettings().DashboardVisible;
                 Settings.DashboardLayout ??= new AppSettings().DashboardLayout;
                 Settings.DashboardPositions ??= new Dictionary<string, DashboardPosition>();
@@ -94,6 +98,38 @@ namespace Burmalk.Services
                 if (Sessions.Count > 2000)
                     Sessions.RemoveRange(0, Sessions.Count - 2000);
                 WriteJson(SessionsPath, Sessions);
+            }
+        }
+
+        public void SavePerformance(PerformanceRecord record)
+        {
+            lock (_gate)
+            {
+                Performance = record;
+                Benchmarks = record;
+                WriteJson(Path.Combine(RootDir, "performance.json"), record);
+                WriteJson(Path.Combine(RootDir, "benchmarks.json"), record);
+            }
+        }
+
+        public void SaveComponentBenchmark(PerformanceRecord component, bool gpu)
+        {
+            lock (_gate)
+            {
+                if (Benchmarks == null || Benchmarks.MethodVersion != component.MethodVersion || Benchmarks.CpuModel != component.CpuModel || Benchmarks.GpuModel != component.GpuModel)
+                    Benchmarks = new PerformanceRecord { MethodVersion = component.MethodVersion, CpuModel = component.CpuModel, GpuModel = component.GpuModel, RamGb = component.RamGb };
+                else Benchmarks = JsonSerializer.Deserialize<PerformanceRecord>(JsonSerializer.Serialize(Benchmarks, JsonOpts), JsonOpts);
+                if (gpu)
+                {
+                    Benchmarks.GpuFps = component.GpuFps; Benchmarks.GpuCompleted = component.GpuCompleted; Benchmarks.GpuSeconds = component.GpuSeconds; Benchmarks.RenderTier = component.RenderTier;
+                }
+                else
+                {
+                    Benchmarks.CpuMillionOps = component.CpuMillionOps; Benchmarks.CpuCompleted = component.CpuCompleted; Benchmarks.CpuSeconds = component.CpuSeconds;
+                    Benchmarks.RamMegabytesPerSecond = component.RamMegabytesPerSecond; Benchmarks.RamCompleted = component.RamCompleted; Benchmarks.MemoryPassed = component.MemoryPassed; Benchmarks.MemoryBytesVerified = component.MemoryBytesVerified;
+                }
+                Benchmarks.TestedUtc = component.TestedUtc;
+                WriteJson(Path.Combine(RootDir, "benchmarks.json"), Benchmarks);
             }
         }
 

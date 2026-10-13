@@ -13,6 +13,7 @@ namespace Burmalk
         public static Services.DataStore Store { get; private set; }
         public static OllamaMonitor Ai { get; private set; }
         public static string SelfTestMode { get; private set; } = "";
+        public static string Version => typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.1.9";
         public static bool IsExperimentalProfile { get; private set; }
         internal static HardwareTuningService Tuning { get; private set; }
         private Mutex _instanceMutex;
@@ -61,6 +62,8 @@ namespace Burmalk
                 OverlayManager.DiagnosticPath=System.IO.Path.Combine(Verification.DirectoryPath,"overlay-status.json");
             }
             Verification.RequireCpuTemperature=args.Contains("--require-cpu-temperature");
+            Verification.RunPerformance = args.Contains("--verify-performance");
+            Verification.RunGpuOnly = args.Contains("--verify-gpu-only");
             int photoArg=Array.IndexOf(args,"--verify-photo");if(photoArg>=0&&photoArg+1<args.Length)Verification.PhotoPath=System.IO.Path.GetFullPath(args[photoArg+1]);
             if (args.Contains("--selftest")) SelfTestMode = "navigate";
             if (args.Contains("--selftest-exit")) SelfTestMode = "navigate-exit";
