@@ -52,6 +52,7 @@ namespace Burmalk.Services
             {
                 if (Array.IndexOf(rankedDashboard.CurrentOrder, "rank") > Array.IndexOf(rankedDashboard.CurrentOrder, "gpu")) rankedDashboard.MoveCard("rank", "gpu"); rankedDashboard.Refresh();
                 Check(ContainsText(view, PassportService.CurrentRank().Name), "Dashboard rank widget displays the persisted real rank");
+                Check(!ContainsText(view, "System.Windows.Controls.DockPanel"), "Header rank button renders rich content instead of a type name");
             }
             if (page == "3D PC VIEW" && view is Burmalk.Views.PcView3D pc3d)
             {

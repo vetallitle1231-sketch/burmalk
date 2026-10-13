@@ -23,7 +23,7 @@ namespace Burmalk.Views
         private readonly TextBlock _rankDetail = ViewUi.Text("Пройди полный тест PC RANK");
         private readonly Burmalk.Controls.RankEmblem _rankHeaderEmblem = new Burmalk.Controls.RankEmblem { Width = 60, Height = 60 };
         private readonly TextBlock _rankHeaderText = ViewUi.Text("");
-        private readonly Button _rankHeaderButton = new Button { Visibility = Visibility.Collapsed, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 3, 0, 0) };
+        private readonly Button _rankHeaderButton = new Button { ContentTemplate = null, Visibility = Visibility.Collapsed, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 3, 0, 0) };
         private readonly Canvas _grid = new Canvas { Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
         private readonly ScrollViewer _workspace = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         private readonly Dictionary<string, Border> _cards = new Dictionary<string, Border>();
