@@ -69,6 +69,7 @@ namespace Burmalk.Services
                     else { position.X = Math.Clamp(position.X, 0, 10000); position.Y = Math.Clamp(position.Y, 0, 10000); }
                 }
                 Settings.GameLibraryPaths ??= Array.Empty<string>();
+                Settings.PcModel ??= new PcModelOptions(); Settings.PcModel.Normalize();
                 if (!new[] { "Auto", "Desktop", "Laptop" }.Contains(Settings.PcModelChassis)) Settings.PcModelChassis = "Auto";
                 if (!new[] { "Auto", "Air", "Aio" }.Contains(Settings.PcModelCooling)) Settings.PcModelCooling = "Auto";
                 Settings.PcWidgetYaw = double.IsFinite(Settings.PcWidgetYaw) ? Settings.PcWidgetYaw % 360 : 32;

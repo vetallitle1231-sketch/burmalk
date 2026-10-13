@@ -54,6 +54,18 @@ namespace Burmalk
 
             // Self-test arguments (used for automated verification, optional)
             var args = e.Args ?? new string[0];
+            int modelPreviewArg = Array.IndexOf(args, "--model-preview-dir");
+            if (modelPreviewArg >= 0 && modelPreviewArg + 1 < args.Length)
+            {
+                Verification.DirectoryPath = System.IO.Path.GetFullPath(args[modelPreviewArg + 1]);
+                System.IO.Directory.CreateDirectory(Verification.DirectoryPath);
+                PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Air.png"), new Models.PcModelOptions(), false, "Белый корпус · воздушный кулер");
+                PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Aio.png"), new Models.PcModelOptions(), true, "Белый корпус · водяное охлаждение");
+                PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Graphite.png"), new Models.PcModelOptions { CaseColor = "Graphite", Lighting = "Teal", GpuFans = 3, VerticalGpu = true, RamModules = 4 }, false, "Графит · вертикальная GPU с 3 вентиляторами");
+                PcModelPreview.ExportObj(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Air.obj"), new Models.PcModelOptions(), false);
+                PcModelPreview.ExportObj(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Aio.obj"), new Models.PcModelOptions(), true);
+                Shutdown(); return;
+            }
             int overlayTestArg=Array.IndexOf(args,"--overlay-test-dir");
             if(overlayTestArg>=0&&overlayTestArg+1<args.Length)
             {

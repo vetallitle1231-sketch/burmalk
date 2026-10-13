@@ -3,6 +3,8 @@
 **/bin/
 **/obj/
 dist/*.exe
+dist/3D-preview/
+dist/Burmalk-3D-Preview.zip
 *.user
 *.suo
 *.log

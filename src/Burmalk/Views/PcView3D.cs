@@ -22,11 +22,14 @@ namespace Burmalk.Views
         private readonly DispatcherTimer _cameraTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         private readonly CheckBox _spin = new CheckBox { Content = "Автовращение", Margin = new Thickness(8) };
         private string _selected = "gpu";
-        private double _yaw = 32, _pitch = 15, _distance = 14, _targetYaw = 32, _targetPitch = 15, _targetDistance = 14;
+        private double _yaw = 32, _pitch = 15, _distance = 16, _targetYaw = 32, _targetPitch = 15, _targetDistance = 16;
         private Point? _down;
         private Point _previous;
         private bool _dragging;
-        private string _sceneKey;
+        private string _sceneKey, _appearanceKey;
+        private PcModelEditor _editor;
+        private Expander _editorSection;
+        internal string AppearanceSignature => _appearanceKey;
         private readonly bool _compact;
         internal string SelectedPart => _selected;
         internal bool AnimationRunning => _cameraTimer.IsEnabled;
@@ -36,12 +39,13 @@ namespace Burmalk.Views
             _compact = compact; if (compact) { _distance = _targetDistance = App.Store.Settings.PcWidgetDistance; _yaw = _targetYaw = App.Store.Settings.PcWidgetYaw; _pitch = _targetPitch = App.Store.Settings.PcWidgetPitch; }
             var root = new StackPanel(); root.Children.Add(BrandVisuals.Badge("BURMALK  /  3D PC VIEW"));
             root.Children.Add(new TextBlock { Text = "Загляни внутрь своего ПК.", FontSize = 32, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 10) });
-            root.Children.Add(ViewUi.Text("Универсальный корпус, настоящие характеристики. Перетаскивай мышью для вращения; колесо — масштаб. Выбери деталь мышью или кнопкой."));
+            root.Children.Add(ViewUi.Text("Твоя сборка в 3D. Настрой детали в редакторе, вращай мышью и приближай колесом. Выбери компонент, чтобы увидеть его настоящие характеристики."));
             var tools = new WrapPanel { Margin = new Thickness(0, 14, 0, 10) };
-            foreach (var part in new[] { ("cpu", "CPU"), ("gpu", "GPU"), ("ram", "RAM"), ("board", "Плата"), ("disks", "Накопители"), ("cooling", "Охлаждение") })
+            foreach (var part in new[] { ("case", "Корпус"), ("cpu", "CPU"), ("gpu", "GPU"), ("ram", "RAM"), ("board", "Плата"), ("disks", "Накопители"), ("cooling", "Охлаждение") })
             {
                 string id = part.Item1; var button = ViewUi.Button(part.Item2, () => SelectPart(id)); _buttons[id] = button; tools.Children.Add(button);
             }
+            if (!compact) tools.Children.Add(ViewUi.Button("Настроить сборку", () => { _editorSection.IsExpanded = true; root.UpdateLayout(); _editor.BringIntoView(); }));
             root.Children.Add(tools);
             var main = new Grid { Margin = new Thickness(0, 0, 0, 16) };
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) }); main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -60,7 +64,13 @@ namespace Burmalk.Views
             chassisChoice.SelectionChanged += (s, e) => { App.Store.Settings.PcModelChassis = chassisChoice.SelectedIndex == 2 ? "Laptop" : chassisChoice.SelectedIndex == 1 ? "Desktop" : "Auto"; App.Store.Save(); Refresh(); };
             coolingChoice.SelectionChanged += (s, e) => { App.Store.Settings.PcModelCooling = coolingChoice.SelectedIndex == 2 ? "Aio" : coolingChoice.SelectedIndex == 1 ? "Air" : "Auto"; App.Store.Save(); Refresh(); };
             if (compact) { main.Children.Remove(sceneBorder); sceneBorder.Child = null; Content = stage; hint.Visibility = Visibility.Collapsed; }
-            else Content = root;
+            else
+            {
+                _editor = new PcModelEditor(Refresh, () => root.BringIntoView(new Rect(0, 0, root.ActualWidth, 40)));
+                _editorSection = new Expander { Header = "РЕДАКТОР МОДЕЛИ  ·  собери свой ПК", Content = _editor, IsExpanded = true, Margin = new Thickness(0, 18, 0, 14) };
+                root.Children.Add(_editorSection);
+                Content = root;
+            }
             BuildScene(); SetCamera(); if (!compact) SelectPart("gpu");
             stage.MouseLeftButtonDown += (s, e) => { stage.Focus(); _down = _previous = e.GetPosition(stage); _dragging = false; stage.CaptureMouse(); e.Handled = true; };
             stage.MouseMove += (s, e) =>
@@ -77,7 +87,7 @@ namespace Burmalk.Views
                 if (e.Key == Key.Left) _targetYaw -= 15; else if (e.Key == Key.Right) _targetYaw += 15;
                 else if (e.Key == Key.Up) _targetPitch = Math.Clamp(_targetPitch - 10, -65, 65); else if (e.Key == Key.Down) _targetPitch = Math.Clamp(_targetPitch + 10, -65, 65);
                 else if (e.Key == Key.Add || e.Key == Key.OemPlus) Zoom(-1); else if (e.Key == Key.Subtract || e.Key == Key.OemMinus) Zoom(1); else return;
-                Animate(); e.Handled = true;
+                Animate(); SaveWidgetCamera(); e.Handled = true;
             };
             _spin.Click += (s, e) => Animate();
             _cameraTimer.Tick += (s, e) =>
@@ -99,7 +109,7 @@ namespace Burmalk.Views
             var position = new Point3D(Math.Sin(yaw) * Math.Cos(pitch) * _distance, Math.Sin(pitch) * _distance, Math.Cos(yaw) * Math.Cos(pitch) * _distance);
             _camera.Position = position; _camera.LookDirection = new Vector3D(-position.X, -position.Y, -position.Z); _camera.UpDirection = new Vector3D(0, 1, 0);
         }
-        internal void ResetCamera() { _targetYaw = 32; _targetPitch = 15; _targetDistance = _compact ? 18 : 14; _spin.IsChecked = false; Animate(); }
+        internal void ResetCamera() { _targetYaw = 32; _targetPitch = 15; _targetDistance = _compact ? 18 : 16; _spin.IsChecked = false; Animate(); }
         internal void Zoom(double change) { _targetDistance = Math.Clamp(_targetDistance + change, 7, 22); Animate(); }
         private void Pick(Point point)
         {
@@ -117,7 +127,7 @@ namespace Burmalk.Views
             {
                 if (_parts.TryGetValue(pair.Key, out var part) && part == id)
                 {
-                    var group = new MaterialGroup(); group.Children.Add(pair.Value); group.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(95, 48, 165, 189)))); pair.Key.Material = group;
+                    var group = new MaterialGroup(); group.Children.Add(pair.Value); group.Children.Add(new EmissiveMaterial(new SolidColorBrush(Color.FromArgb(14, 48, 165, 189)))); pair.Key.Material = group;
                 }
                 else pair.Key.Material = pair.Value;
             }
@@ -128,12 +138,13 @@ namespace Burmalk.Views
         {
             var h = App.Monitor.Hardware.Snapshot; var s = App.Monitor.LastSample;
             string key = (App.Store.Settings.PcModelChassis == "Auto" ? h.System.IsLaptop ? "Laptop" : "Desktop" : App.Store.Settings.PcModelChassis) + "/" + App.Store.Settings.PcModelCooling;
-            if (_sceneKey != key) { BuildScene(); if (!_compact) SelectPart(_selected); }
+            if (_sceneKey != key || _appearanceKey != App.Store.Settings.PcModel.Signature) { BuildScene(); if (!_compact) SelectPart(_selected); }
             bool fresh = DateTime.UtcNow.Ticks - s.TimestampUtc < TimeSpan.TicksPerSecond * 15;
             string N(double value, string unit) => PassportService.Number(fresh ? value : double.NaN, unit);
-            _partTitle.Text = _selected switch { "cpu" => "Процессор", "gpu" => "Видеокарта", "ram" => "Память", "board" => "Материнская плата", "disks" => "Накопители", _ => "Охлаждение" };
+            _partTitle.Text = _selected switch { "case" => "Корпус", "cpu" => "Процессор", "gpu" => "Видеокарта", "ram" => "Память", "board" => "Материнская плата", "disks" => "Накопители", _ => "Охлаждение" };
             _facts.Text = _selected switch
             {
+                "case" => "Внешний вид выбран в редакторе. Настройки модели не меняют характеристики компьютера.",
                 "cpu" => PassportService.Text(h.Cpu.Model) + "\n" + (h.Cpu.Cores > 0 ? h.Cpu.Cores + " ядер · " + h.Cpu.Threads + " потоков" : "Ядра и потоки: Нет данных"),
                 "gpu" => PassportService.Text(PassportService.GpuName()) + "\nДрайвер: " + PassportService.Text(h.Gpu.DriverVersion),
                 "ram" => PassportService.Number(h.Ram.InstalledGb, "GiB") + " · " + PassportService.Text(h.Ram.MemoryType) + "\n" + h.Ram.Modules.Count + " модулей · " + PassportService.Number(h.Ram.MaxSpeedMhz, "MT/s"),
@@ -144,6 +155,7 @@ namespace Burmalk.Views
             if (_facts.Text.Length == 0) _facts.Text = "Нет данных";
             _live.Text = "\nДАТЧИКИ · LIVE\n" + (_selected switch
             {
+                "case" => "Открывай редактор под моделью, чтобы выбрать корпус, панель, вентиляторы и подсветку.",
                 "cpu" => "Температура: " + N(s.CpuTempC, "°C") + "\nНагрузка: " + N(s.CpuPercent, "%") + "\nЧастота: " + N(s.CpuGhz * 1000, "MHz"),
                 "gpu" => "Температура: " + N(s.GpuTempC, "°C") + "\nНагрузка: " + N(s.GpuPercent, "%") + "\nЯдро: " + N(s.GpuClockMhz, "MHz") + "\nПамять: " + N(s.GpuMemClockMhz, "MHz") + "\nVRAM: " + N(s.GpuVramUsedGb, "GiB") + " / " + N(s.GpuVramTotalGb, "GiB"),
                 "ram" => "Занято: " + N(s.RamUsedGb, "GiB") + "\nНагрузка: " + N(s.RamPercent, "%"),
@@ -157,86 +169,25 @@ namespace Burmalk.Views
             _viewport.Children.Clear(); _parts.Clear(); _original.Clear();
             bool laptop = App.Store.Settings.PcModelChassis == "Laptop" || (App.Store.Settings.PcModelChassis == "Auto" && App.Monitor.Hardware.Snapshot.System.IsLaptop);
             _sceneKey = (laptop ? "Laptop" : "Desktop") + "/" + App.Store.Settings.PcModelCooling;
-            var scene = new Model3DGroup(); scene.Children.Add(new AmbientLight(Color.FromRgb(67, 78, 101)));
-            scene.Children.Add(new DirectionalLight(Colors.White, new Vector3D(-3, -4, -6)));
-            scene.Children.Add(new DirectionalLight(Color.FromRgb(129, 89, 230), new Vector3D(4, 2, 1)));
-            scene.Children.Add(new DirectionalLight(Color.FromRgb(72, 205, 212), new Vector3D(-3, 1, 3)));
-            void Box(string id, double x, double y, double z, double w, double h, double d, Color color) => Add(scene, id, BoxMesh(x, y, z, w, h, d), color);
-            Color chassis = Color.FromRgb(35, 48, 67), teal = Color.FromRgb(58, 210, 202), purple = Color.FromRgb(144, 113, 220);
-            if (laptop) { BuildLaptop(scene); _viewport.Children.Add(new ModelVisual3D { Content = scene }); return; }
-            Box(null, 0, -3, 0, 4.2, .18, 3.1, chassis); Box(null, 0, 3, 0, 4.2, .18, 3.1, chassis); Box(null, 0, 0, -1.55, 4.2, 6, .12, chassis);
-            foreach (double x in new[] { -2.06, 2.06 }) foreach (double z in new[] { -1.5, 1.5 }) Box(null, x, 0, z, .09, 6, .09, chassis);
-            foreach (double x in new[] { -2.06, 2.06 }) Box(null, x, 0, 1.57, .025, 5.85, .04, teal);
-            Box("board", -.32, .38, -1.36, 3.35, 4.45, .15, Color.FromRgb(18, 45, 52));
-            Box("cpu", -.85, 1.15, -1.05, .78, .78, .24, Color.FromRgb(151, 167, 190));
-            if (App.Store.Settings.PcModelCooling == "Aio")
+            _appearanceKey = App.Store.Settings.PcModel.Signature;
+            if (laptop)
             {
-                Add(scene, "cooling", Cylinder(new Point3D(-.85, 1.15, -.82), .42, .22), chassis);
-                Ring(scene, "cooling", new Point3D(-.85, 1.15, -.69), .35, .045, teal);
-                Box("cooling", -.4, 2.65, -.15, 2.5, .22, 2.1, chassis);
-                for (int i = 0; i < 20; i++) Box("cooling", -1.55 + i * .12, 2.78, -.15, .025, .08, 1.85, Color.FromRgb(75, 86, 100));
-                for (int side = 0; side < 2; side++)
-                {
-                    Point3D prev = new Point3D(-.67 + side * .2, 1.25, -.63);
-                    for (int i = 1; i <= 32; i++)
-                    {
-                        double t = i / 32d;
-                        var next = new Point3D(-.67 + side * .2 + Math.Sin(t * Math.PI) * .55, 1.25 + t * 1.35, -.63 + Math.Sin(t * Math.PI) * .65);
-                        Add(scene, "cooling", Tube(prev, next, .075), Color.FromRgb(35, 43, 56)); prev = next;
-                    }
-                }
+                var notebook = new Model3DGroup(); notebook.Children.Add(new AmbientLight(Color.FromRgb(95, 107, 128)));
+                notebook.Children.Add(new DirectionalLight(Colors.White, new Vector3D(-3, -4, -6)));
+                BuildLaptop(notebook); _viewport.Children.Add(new ModelVisual3D { Content = notebook });
             }
             else
             {
-                for (int i = 0; i < 16; i++) Box("cooling", -.85, .63 + i * .075, -.5, 1.05, .032, .85, Color.FromRgb(148, 157, 171));
-                for (int i = 0; i < 4; i++) Add(scene, "cooling", Tube(new Point3D(-1.15 + i * .2, .45, -.55), new Point3D(-1.15 + i * .2, 1.83, -.55), .04), Color.FromRgb(188, 138, 83));
-                Box("cooling", -.85, 1.2, .015, 1.08, 1.25, .12, chassis);
-                Ring(scene, "cooling", new Point3D(-.85, 1.2, .095), .47, .05, teal);
+                var scene = PcModelScene.Desktop(App.Store.Settings.PcModel, App.Store.Settings.PcModelCooling == "Aio");
+                foreach (var pair in scene.Parts) { _parts[pair.Key] = pair.Value; _original[pair.Key] = pair.Key.Material; }
+                _viewport.Children.Add(new ModelVisual3D { Content = scene.Root });
             }
-            for (int i = 0; i < 7; i++) Box("board", -.95 + i * .24, 2.15, -1.19, .14, .14, .12, Color.FromRgb(93, 108, 131));
-            for (int i = 0; i < 3; i++) Box("board", -.9, -.05 - i * .32, -1.18, 1.65, .09, .12, chassis);
-            for (int i = 0; i < 6; i++) Box("board", 1.32, -.45 - i * .17, -1.17, .12, .09, .17, Color.FromRgb(90, 102, 119));
-            for (int i = 0; i < 4; i++) { Box("ram", .25 + i * .31, 1, -.88, .16, 1.8, .35, Color.FromRgb(64, 49, 98)); Box("ram", .25 + i * .31, 1.95, -.65, .16, .06, .25, purple); }
-            Box("gpu", -.35, -.59, .1, 3.2, .52, 1.96, Color.FromRgb(35, 54, 68)); Box("gpu", -.35, -.3, .65, 3.05, .05, .6, teal);
-            for (int i = 0; i < 3; i++) Ring(scene, "gpu", new Point3D(-1.37 + i * 1.02, -.57, 1.11), .35, .04, Color.FromRgb(87, 178, 192));
-            Box(null, -.6, -2.37, -.1, 2.8, .9, 2.75, chassis);
-            for (int i = 0; i < Math.Clamp(App.Monitor.Storage.PhysicalDrives.Count, 1, 4); i++) { Box("disks", 1.23, -1.25 - i * .44, -.4, .88, .32, 1.85, Color.FromRgb(50, 65, 83)); Box("disks", 1.23, -1.17 - i * .44, .56, .5, .035, .05, purple); }
-            for (int i = 0; i < 3; i++) Box("cooling", 1.48, 2.13 - i * 1.36, 1.25, 1.08, 1.08, .14, chassis);
-            for (int i = 0; i < 3; i++) Ring(scene, "cooling", new Point3D(1.48, 2.13 - i * 1.36, 1.36), .47, .06, i % 2 == 0 ? teal : purple);
-            foreach (double x in new[] { -1.55, 1.55 }) foreach (double z in new[] { -1.05, 1.05 }) Box(null, x, -3.15, z, .5, .32, .65, chassis);
-            for (int i = 0; i < 22; i++) Box(null, -.7 + i * .12, -2.12, 1.33, .06, .37, .035, Color.FromRgb(67, 78, 94));
-            Box(null, 0, -3.36, 0, 5.9, .08, 4.5, Color.FromRgb(15, 24, 37));
-            _viewport.Children.Add(new ModelVisual3D { Content = scene });
+            if (_editor != null) { _editor.IsEnabled = !laptop; _editor.Opacity = laptop ? .55 : 1; _editor.Synchronize(); }
         }
         private void Add(Model3DGroup scene, string id, MeshGeometry3D mesh, Color color)
         {
             mesh.Freeze(); var material = new MaterialGroup(); var brush = new SolidColorBrush(color); brush.Freeze(); material.Children.Add(new DiffuseMaterial(brush)); material.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromRgb(100, 122, 140)), 38)); material.Freeze();
             var model = new GeometryModel3D(mesh, material) { BackMaterial = material }; _original[model] = material; if (id != null) _parts[model] = id; scene.Children.Add(model);
-        }
-        private void Ring(Model3DGroup scene, string id, Point3D center, double radius, double thickness, Color color)
-        {
-            var mesh = new MeshGeometry3D();
-            for (int i = 0; i < 32; i++)
-            {
-                double a = i * Math.PI * 2 / 32, b = (i + 1) * Math.PI * 2 / 32; int start = mesh.Positions.Count;
-                foreach (var p in new[] { (a, radius), (a, radius - thickness), (b, radius - thickness), (b, radius) }) { mesh.Positions.Add(new Point3D(center.X + Math.Cos(p.Item1) * p.Item2, center.Y + Math.Sin(p.Item1) * p.Item2, center.Z)); mesh.Normals.Add(new Vector3D(0, 0, 1)); }
-                foreach (int k in new[] { 0, 1, 2, 0, 2, 3 }) mesh.TriangleIndices.Add(start + k);
-            }
-            Add(scene, id, mesh, color);
-
-            Add(scene, id, Cylinder(new Point3D(center.X, center.Y, center.Z + .02), radius * .21, .08), Color.FromRgb(99, 115, 136));
-            for (int blade = 0; blade < 9; blade++)
-            {
-                var fan = new MeshGeometry3D();
-                for (int step = 0; step <= 10; step++)
-                {
-                    double t = step / 10d, r = radius * (.19 + t * .68), a = blade * Math.PI * 2 / 9 + t * .53;
-                    foreach (double offset in new[] { 0d, .29 * t + .12 })
-                    { fan.Positions.Add(new Point3D(center.X + Math.Cos(a + offset) * r, center.Y + Math.Sin(a + offset) * r, center.Z + .009)); fan.Normals.Add(new Vector3D(0, 0, 1)); }
-                    if (step > 0) foreach (int k in new[] { 0, 1, 3, 0, 3, 2 }) fan.TriangleIndices.Add((step - 1) * 2 + k);
-                }
-                Add(scene, id, fan, Color.FromRgb(85, 98, 120));
-            }
         }
         private void BuildLaptop(Model3DGroup scene)
         {
@@ -256,27 +207,6 @@ namespace Burmalk.Views
             for (int i = 0; i < 20; i++) B("cooling", -2.6 + i * .27, -.86, -1.35, .12, .05, .08, Color.FromRgb(12, 22, 38));
             B("disks", -2.65, -.95, .3, .5, .06, .13, Color.FromRgb(20, 28, 42));
         }
-        private static MeshGeometry3D Cylinder(Point3D center, double radius, double depth) => Tube(new Point3D(center.X, center.Y, center.Z - depth / 2), new Point3D(center.X, center.Y, center.Z + depth / 2), radius);
-        private static MeshGeometry3D Tube(Point3D from, Point3D to, double radius)
-        {
-            var mesh = new MeshGeometry3D(); var axis = to - from; axis.Normalize();
-            var u = Vector3D.CrossProduct(axis, Math.Abs(axis.Y) < .9 ? new Vector3D(0, 1, 0) : new Vector3D(1, 0, 0)); u.Normalize(); var v = Vector3D.CrossProduct(axis, u);
-            for (int i = 0; i <= 24; i++)
-            {
-                double angle = i * Math.PI * 2 / 24; var normal = u * Math.Cos(angle) + v * Math.Sin(angle);
-                mesh.Positions.Add(from + normal * radius); mesh.Positions.Add(to + normal * radius); mesh.Normals.Add(normal); mesh.Normals.Add(normal);
-                if (i > 0) foreach (int k in new[] { 0, 1, 3, 0, 3, 2 }) mesh.TriangleIndices.Add((i - 1) * 2 + k);
-            }
-            foreach (bool top in new[] { false, true })
-            {
-                Point3D center = top ? to : from; Vector3D normal = top ? axis : -axis; int start = mesh.Positions.Count;
-                mesh.Positions.Add(center); mesh.Normals.Add(normal);
-                for (int i = 0; i <= 24; i++) { double a = i * Math.PI * 2 / 24; mesh.Positions.Add(center + (u * Math.Cos(a) + v * Math.Sin(a)) * radius); mesh.Normals.Add(normal); }
-                for (int i = 0; i < 24; i++) { mesh.TriangleIndices.Add(start); mesh.TriangleIndices.Add(start + i + (top ? 1 : 2)); mesh.TriangleIndices.Add(start + i + (top ? 2 : 1)); }
-            }
-            return mesh;
-        }
-
         private static MeshGeometry3D BoxMesh(double x, double y, double z, double w, double h, double d)
         {
             var mesh = new MeshGeometry3D(); var p = new[] { new Point3D(x-w/2,y-h/2,z-d/2), new Point3D(x+w/2,y-h/2,z-d/2), new Point3D(x+w/2,y+h/2,z-d/2), new Point3D(x-w/2,y+h/2,z-d/2), new Point3D(x-w/2,y-h/2,z+d/2), new Point3D(x+w/2,y-h/2,z+d/2), new Point3D(x+w/2,y+h/2,z+d/2), new Point3D(x-w/2,y+h/2,z+d/2) };

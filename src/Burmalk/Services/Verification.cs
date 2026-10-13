@@ -76,6 +76,38 @@ namespace Burmalk.Services
                     Capture(Application.Current.MainWindow, "Model-" + variant.Item1 + "-" + variant.Item2);
                 }
                 settings.PcModelChassis = oldChassis; settings.PcModelCooling = oldCooling; settings.ReducedEffects = oldReduced; pc3d.Refresh();
+                var oldModel = settings.PcModel;
+                try
+                {
+                    settings.PcModel = new PcModelOptions(); settings.PcModelChassis = "Desktop"; pc3d.Refresh();
+                    var gpuChoice = FindNamed<System.Windows.Controls.ComboBox>(pc3d, "Вентиляторы GPU");
+                    Check(gpuChoice != null, "Model editor exposes a GPU fan choice");
+                    if (gpuChoice != null)
+                    {
+                        gpuChoice.SelectedIndex = 3;
+                        var saved = new DataStore(App.Store.RootDir); saved.Load();
+                        Check(saved.Settings.PcModel.GpuFans == 3 && pc3d.AppearanceSignature == settings.PcModel.Signature, "Changing the GPU selector updates the model and immediately saves its appearance");
+                    }
+                    foreach (int fans in new[] { 0, 1, 2, 3 })
+                    {
+                        var model = new PcModelOptions { GpuFans = fans, FrontFans = 3, RearFans = 1, TopFans = 0, BottomFans = 2, AirCoolerFans = 2, RadiatorFans = 3, RamModules = 4 };
+                        var air = PcModelScene.Desktop(model, false); var water = PcModelScene.Desktop(model, true);
+                        int Count(PcModelScene scene, string role) => scene.FanCounts.TryGetValue(role, out int value) ? value : 0;
+                        Check(Count(air, "gpu") == fans && Count(air, "cpu") == 2 && Count(air, "front") == 3 && Count(air, "bottom") == 2, "Configured air model contains the selected fans: GPU " + fans);
+                        Check(Count(water, "radiator") == 3 && Count(water, "cpu") == 0 && Count(water, "top") == 0, "Water model replaces the CPU tower and top fans with its radiator");
+                        settings.PcModel = model; settings.PcModelChassis = "Desktop"; pc3d.Refresh();
+                        Check(pc3d.AppearanceSignature == model.Signature, "Existing 3D view rebuilds after appearance changes");
+                        var widget = new Burmalk.Views.PcView3D(true); widget.Refresh();
+                        Check(widget.AppearanceSignature == pc3d.AppearanceSignature, "Home widget uses the same model appearance");
+                    }
+                    PcModelPreview.Save(Path.Combine(DirectoryPath, "Burmalk-PC-Air.png"), new PcModelOptions(), false, "Белый корпус · воздушный кулер");
+                    PcModelPreview.Save(Path.Combine(DirectoryPath, "Burmalk-PC-Aio.png"), new PcModelOptions(), true, "Белый корпус · водяное охлаждение");
+                    PcModelPreview.Save(Path.Combine(DirectoryPath, "Burmalk-PC-Graphite.png"), new PcModelOptions { CaseColor = "Graphite", Lighting = "Teal", GpuFans = 3, VerticalGpu = true, RamModules = 4 }, false, "Графит · вертикальная GPU с 3 вентиляторами");
+                }
+                finally { settings.PcModel = oldModel; settings.PcModelChassis = oldChassis; pc3d.Refresh(); }
+                Check(Click(pc3d, "Настроить сборку"), "Model editor can be opened from the main toolbar");
+                Capture(Application.Current.MainWindow, "Model-editor");
+                Check(Click(pc3d, "К 3D-модели"), "Model editor returns to the interactive view");
             }
             if (page == "PC PASSPORT" && view is Burmalk.Views.PassportView passport)
             {
@@ -157,6 +189,14 @@ namespace Burmalk.Services
                 if (ContainsText(VisualTreeHelper.GetChild(root, i), text)) return true;
             return false;
         }
+        private static T FindNamed<T>(DependencyObject root, string name) where T : DependencyObject
+        {
+            if (root == null) return null;
+            if (root is T candidate && System.Windows.Automation.AutomationProperties.GetName(candidate) == name) return candidate;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            { var found = FindNamed<T>(VisualTreeHelper.GetChild(root, i), name); if (found != null) return found; }
+            return null;
+        }
         private static T Find<T>(DependencyObject root) where T : DependencyObject
         {
             if(root is T found)return found;
@@ -186,9 +226,11 @@ namespace Burmalk.Services
             store.AddSession(new GameSession{GameName="VerificationProfile",StartedUtc=DateTime.UtcNow,GpuTempAvg=double.NaN,CpuTempAvg=App.Monitor.LastSample.CpuTempC});store.Save();
             var read=new DataStore(store.RootDir);read.Load();
             store.Settings.PcModelChassis = "Laptop"; store.Settings.PcModelCooling = "Aio"; store.Settings.PcWidgetYaw = 76; store.Settings.PcWidgetPitch = 28; store.Settings.PcWidgetDistance = 17; store.Save();
+            store.Settings.PcModel = new PcModelOptions { CaseColor = "Graphite", SidePanel = "Glass", BoardSize = "ITX", Lighting = "Purple", GpuFans = 3, VerticalGpu = true, RamModules = 4, FrontFans = 3, RearFans = 0, TopFans = 1, BottomFans = 2, AirCoolerFans = 2, RadiatorFans = 3, Drives = 4 }; store.Save();
             store.SaveDiskMeasurement(new DiskMeasurement { Root = "X:\\", PhysicalModel = "fixture disk", VolumeBytes = 100L * 1024 * 1024 * 1024, ReadMBps = 250, WriteMBps = 120, Bytes = 128L * 1024 * 1024, TestedUtc = DateTime.UtcNow });
             var modelRead = new DataStore(store.RootDir); modelRead.Load();
             Check(modelRead.Settings.PcModelChassis == "Laptop" && modelRead.Settings.PcModelCooling == "Aio" && modelRead.Settings.PcWidgetYaw == 76 && modelRead.Settings.PcWidgetPitch == 28 && modelRead.Settings.PcWidgetDistance == 17, "3D model type and widget camera survive restart");
+            Check(modelRead.Settings.PcModel.Signature == store.Settings.PcModel.Signature, "All model editor options survive restart together with widget camera");
             Check(modelRead.DiskMeasurements.Count == 1 && modelRead.DiskMeasurements[0].PhysicalModel == "fixture disk" && modelRead.DiskMeasurements[0].ReadMBps == 250, "Saved disk measurements preserve drive identity and measured rates");
             var rankFixture = new PerformanceRecord { MethodVersion = RankMethod.Version, TestedUtc = DateTime.UtcNow, CpuModel = "fixture CPU", GpuModel = "fixture GPU", RamGb = 32,
                 CpuMillionOps = RankMethod.ReferenceCpu, GpuFps = RankMethod.ReferenceGpu, RamMegabytesPerSecond = RankMethod.ReferenceRam, CpuCompleted = true, GpuCompleted = true, RamCompleted = true, MemoryPassed = true,
