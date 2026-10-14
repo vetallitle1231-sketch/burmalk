@@ -84,6 +84,13 @@ namespace Burmalk
             int photoArg=Array.IndexOf(args,"--verify-photo");if(photoArg>=0&&photoArg+1<args.Length)Verification.PhotoPath=System.IO.Path.GetFullPath(args[photoArg+1]);
             if (args.Contains("--selftest")) SelfTestMode = "navigate";
             if (args.Contains("--selftest-exit")) SelfTestMode = "navigate-exit";
+            int dashboardPreviewArg = Array.IndexOf(args, "--dashboard-preview-dir");
+            if (dashboardPreviewArg >= 0 && dashboardPreviewArg + 1 < args.Length)
+            {
+                SelfTestMode = "dashboard-preview";
+                Verification.DirectoryPath = System.IO.Path.GetFullPath(args[dashboardPreviewArg + 1]);
+                System.IO.Directory.CreateDirectory(Verification.DirectoryPath);
+            }
             int verifyArg=Array.IndexOf(args,"--verify-dir");
             if(SelfTestMode!=""&&verifyArg>=0&&verifyArg+1<args.Length)
             {
@@ -143,6 +150,12 @@ namespace Burmalk
             window.Show();
             MainWindow = window;
             ShutdownMode = ShutdownMode.OnMainWindowClose;
+            if (SelfTestMode == "dashboard-preview")
+            {
+                var capture = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+                capture.Tick += (_, _) => { capture.Stop(); Verification.Capture(window, "Dashboard"); Shutdown(); };
+                capture.Start();
+            }
 
             // Navigation verification must never steal the player's hotkey or change their RTSS OSD.
             if (Verification.DirectoryPath == null || SelfTestMode == "overlay") Services.OverlayManager.Initialize(this, Store, Monitor);

@@ -6,12 +6,12 @@
 #endif
 [Setup]
 AppId=Burmalk.Experimental.App
-AppName=Burmalk Experimental
+AppName=Burmalk
 AppVersion={#AppVersion}
-AppVerName=Burmalk {#AppVersion} Experimental
+AppVerName=Burmalk {#AppVersion}
 AppPublisher=Burmalk
 DefaultDirName={localappdata}\Programs\Burmalk Experimental
-DefaultGroupName=Burmalk Experimental
+DefaultGroupName=Burmalk
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -29,7 +29,7 @@ LZMANumBlockThreads=1
 SolidCompression=yes
 CloseApplications=yes
 RestartApplications=no
-UninstallDisplayName=Burmalk Experimental {#AppVersion}
+UninstallDisplayName=Burmalk {#AppVersion}
 VersionInfoProductName=Burmalk
 VersionInfoDescription=Burmalk Setup
 VersionInfoProductVersion={#AppVersion}
@@ -44,15 +44,17 @@ Source: "..\.build\tools\PawnIO_setup.exe"; DestDir: "{app}\Support"; Flags: ign
 Source: "..\docs\CPU-SENSORS.txt"; DestDir: "{app}\Support"; Flags: ignoreversion
 
 [Icons]
-Name: "{userdesktop}\Burmalk Experimental {#AppVersion}"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
-Name: "{userprograms}\Burmalk Experimental {#AppVersion}"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
+Name: "{userdesktop}\Burmalk {#AppVersion}"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
+Name: "{userprograms}\Burmalk {#AppVersion}"; Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; WorkingDir: "{app}"; IconFilename: "{app}\Burmalk.exe"; AppUserModelID: "Burmalk.Experimental.App"
 
 [InstallDelete]
+Type: files; Name: "{userdesktop}\Burmalk Experimental 1.1.11.lnk"
+Type: files; Name: "{userprograms}\Burmalk Experimental 1.1.11.lnk"
 Type: files; Name: "{userdesktop}\Burmalk Experimental 1.1.8.lnk"
 Type: files; Name: "{userprograms}\Burmalk Experimental 1.1.8.lnk"
 Type: files; Name: "{userdesktop}\Burmalk Experimental 1.1.9.lnk"
 Type: files; Name: "{userprograms}\Burmalk Experimental 1.1.9.lnk"
 
 [Run]
-Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; Description: "Запустить Burmalk экспериментальную версию"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Burmalk.exe"; Parameters: "--profile-experimental"; Description: "Запустить Burmalk"; Flags: nowait postinstall skipifsilent
 

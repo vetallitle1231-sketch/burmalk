@@ -35,7 +35,7 @@ namespace Burmalk
 
         public MainWindow()
         {
-            Title = "Burmalk " + App.Version + (App.IsExperimentalProfile ? " · экспериментальная" : "");
+            Title = "Burmalk " + App.Version;
             Icon = new BitmapImage(new Uri("pack://application:,,,/Assets/Burmalk.ico"));
             Width = 1440;
             Height = 940;
@@ -101,7 +101,7 @@ namespace Burmalk
             navigation.Children.Add(brand);
             Grid.SetRow(_nav, 1);
             var footer = new StackPanel { Margin = new Thickness(0, 10, 0, 6) };
-            var edition = BrandVisuals.Badge((App.IsExperimentalProfile ? "EXPERIMENTAL  /  " : "BURMALK  /  ") + App.Version); edition.Margin = new Thickness(22, 0, 0, 12); footer.Children.Add(edition);
+            var edition = BrandVisuals.Badge("BURMALK  /  " + App.Version); edition.Margin = new Thickness(22, 0, 0, 12); footer.Children.Add(edition);
             footer.Children.Add(_startupButton); Grid.SetRow(footer, 2);
             _startupButton.Click += ToggleStartup;
             navigation.Children.Add(_nav);
