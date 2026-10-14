@@ -123,25 +123,83 @@ internal sealed class PcModelScene
     private void GraphicsCard()
     {
         int first = Root.Children.Count;
-        double length = 1.15 + _o.GpuFans * .86, x = -1.98 + length / 2;
-        Box("gpu", x, -.79, -.06, length, .46, 1.63, _dark);
-        Box("gpu", x, -.53, -.06, length - .08, .055, 1.60, _metal);
-        Add("gpu", Grille(new Point3D(x, -.79, .769), new Vector3D(1, 0, 0), new Vector3D(0, 1, 0), length - .10, .35, .08, .012), _metal);
-        Box("gpu", x, -.61, .82, length - .10, .035, .045, _o.Lighting == "Off" ? _shell : _led);
-        Box("gpu", -1.96, -.65, -.10, .055, .76, 1.68, _metal);
+        double length = .55 + _o.GpuFans * 1.02, x = -1.97 + length / 2;
+        var graphite = Color.FromRgb(55, 61, 70); var plate = Color.FromRgb(82, 90, 102);
+        // The heatsink is open at the sides: individual fins, not a painted grille on a box.
+        var fins = new List<MeshGeometry3D>();
+        for (double fx = -1.84; fx < -1.97 + length - .10; fx += .042)
+            fins.Add(Cuboid(new Point3D(fx, -.79, -.035), .009, .34, 1.24));
+        Add("gpu", Merge(fins), Color.FromRgb(172, 181, 191));
+        Box("gpu", x, -.55, -.21, length - .15, .035, 1.16, Color.FromRgb(37, 43, 47));
+        Add("gpu", BeveledPrism(new Point3D(x, -.48, -.035), length, .085, 1.34, .13), plate);
+        // Brushed backplate seams, captive screws and diagonal raised ribs.
+        foreach (double fx in new[] { -1.72, x, -1.97 + length - .22 }) foreach (double z in new[] { -.51, .46 })
+            Pipe("gpu", new Point3D(fx, -.431, z), new Point3D(fx, -.415, z), .025, _dark);
+        for (int i = 0; i < _o.GpuFans * 3; i++)
+            Pipe("gpu", new Point3D(-1.70 + i * .30, -.43, -.46), new Point3D(-1.59 + i * .30, -.43, .35), .012, Color.FromRgb(114, 123, 136));
+        // Four heatpipes run through the fin stack and curl at the far end.
+        for (int i = 0; i < 4; i++)
+        {
+            double z = -.42 + i * .265;
+            Curve("gpu", new Point3D(-1.76, -.95, z), new Point3D(x, -.96, z), new Point3D(-1.97 + length - .08, -.96, z), new Point3D(-1.97 + length - .12, -.67, z), .035, Color.FromRgb(146, 127, 110));
+        }
+        // A separate angular shroud surrounds circular fan openings.
+        foreach (double z in new[] { -.68, .63 })
+        {
+            Add("gpu", BeveledPrism(new Point3D(x, -1.065, z), length, .16, .10, .035), graphite);
+            Add("gpu", BeveledPrism(new Point3D(x, -.59, z), length, .13, .10, .035), graphite);
+        }
+        foreach (double end in new[] { -1.97 + .1375, -1.97 + length - .1375 })
+            Add("gpu", BeveledPrism(new Point3D(end, -1.115, -.025), .275, .075, 1.34, .08), graphite);
         for (int i = 0; i < _o.GpuFans; i++)
         {
-            double cx = x + Spaced(i, _o.GpuFans, .88);
-            Fan("gpu", new Point3D(cx, -1.035, -.03), new Vector3D(0, -1, 0), .38, "gpu");
+            double cx = x + Spaced(i, _o.GpuFans, 1.02);
+            Add("gpu", FanPanel(new Point3D(cx, -1.153, -.025), .51, .67, .485), graphite);
+            Fan("gpu", new Point3D(cx, -1.075, -.025), new Vector3D(0, -1, 0), .49, "gpu", true);
         }
+        // Angular metallic shoulder lines make the fan face read as a GPU shroud.
+        foreach (double side in new[] { -1d, 1d })
+        {
+            Pipe("gpu", new Point3D(-1.77, -1.167, -.025 + side * .60), new Point3D(-1.97 + length - .20, -1.167, -.025 + side * .60), .012, Color.FromRgb(135, 146, 162));
+            Pipe("gpu", new Point3D(-1.85, -1.167, -.025 + side * .42), new Point3D(-1.77, -1.167, -.025 + side * .60), .018, Color.FromRgb(104, 114, 130));
+            Pipe("gpu", new Point3D(-1.97 + length - .20, -1.167, -.025 + side * .60), new Point3D(-1.97 + length - .11, -1.167, -.025 + side * .42), .018, Color.FromRgb(104, 114, 130));
+        }
+        // Side trim is deliberately short; most of the radiator remains exposed.
+        Add("gpu", BeveledPrism(new Point3D(x - length * .12, -.69, .693), length * .54, .15, .042, .015), Color.FromRgb(101, 111, 126));
+        Box("gpu", x - length * .12, -.605, .722, length * .50, .025, .018, _o.Lighting == "Off" ? Color.FromRgb(198, 206, 216) : _led);
+        // PCB connector and a slotted metal I/O bracket with three recessed ports.
+        Box("gpu", x - length * .13, -.535, -.705, length * .58, .025, .24, Color.FromRgb(38, 43, 46));
+        Box("gpu", x - length * .13, -.532, -.837, length * .48, .018, .050, Color.FromRgb(185, 152, 88));
+        for (int i = 0; i < 16; i++) Box("gpu", x - length * .37 + i * length * .03, -.52, -.838, .011, .006, .052, _dark);
+        Box("gpu", -1.99, -.80, -.06, .045, .81, 1.63, _metal);
+        Add("gpu", Grille(new Point3D(-2.017, -.92, -.035), new Vector3D(0, 1, 0), new Vector3D(0, 0, 1), .22, 1.34, .06, .016), _dark);
+        foreach (double z in new[] { -.48, -.07, .34 }) Box("gpu", -2.019, -.58, z, .018, .115, .30, _dark);
+        // Power connector belongs to the rotated card; its sleeved cable stays in case space.
+        var plug = new Point3D(x + length * .21, -.65, .79);
+        Add("gpu", BeveledPrism(plug, .34, .20, .22, .025), _dark);
+        for (int i = 0; i < 4; i++) Box("gpu", plug.X - .12 + i * .08, plug.Y + .104, plug.Z, .044, .012, .105, Color.FromRgb(116, 123, 133));
+        Transform3D rotation = Transform3D.Identity;
         if (_o.VerticalGpu)
         {
-            var rotate = new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(1, 0, 0), -90), x, -.79, -.06);
-            rotate.Freeze(); for (int i = first; i < Root.Children.Count; i++) Root.Children[i].Transform = rotate;
+            rotation = new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(1, 0, 0), -90), x, -.79, -.06);
+            rotation.Freeze(); for (int i = first; i < Root.Children.Count; i++) Root.Children[i].Transform = rotation;
         }
-        Box("gpu", length / 2 + x - .18, -1.41, .63, .075, .72, .075, _dark);
+        var cableStart = rotation.Transform(plug + new Vector3D(0, 0, .12));
+        for (int i = 0; i < 6; i++)
+        {
+            var a = cableStart + new Vector3D((i - 2.5) * .034, 0, 0);
+            var b = _o.VerticalGpu ? new Point3D(-1.97 + length + .16, a.Y + .12, a.Z + .25) : a + new Vector3D(.16, -.20, .27);
+            var c = _o.VerticalGpu ? new Point3D(-1.97 + length + .22 + i * .024, -1.05, 1.10) : new Point3D(1.46 + i * .027, -1.05, 1.10);
+            Curve("gpu", a, b, c, new Point3D(1.50 + i * .027, -1.82, .70), .017, i % 2 == 0 ? Color.FromRgb(55, 61, 70) : Color.FromRgb(78, 84, 94));
+        }
+        Box("gpu", 1.53, -1.60, .91, .26, .045, .13, _dark);
+        if (!_o.VerticalGpu)
+        {
+            Pipe("gpu", new Point3D(-1.97 + length - .18, -1.78, .63), new Point3D(-1.97 + length - .18, -1.02, .63), .026, _metal);
+            Box("gpu", -1.97 + length - .18, -1.01, .63, .23, .06, .24, _dark);
+        }
     }
-    private void Fan(string role, Point3D center, Vector3D normal, double radius, string part)
+    private void Fan(string role, Point3D center, Vector3D normal, double radius, string part, bool integrated = false)
     {
         FanCounts[role] = FanCounts.TryGetValue(role, out int count) ? count + 1 : 1;
         Basis(normal, out var u, out var v);
@@ -149,24 +207,73 @@ internal sealed class PcModelScene
         double outer = radius + .055, rail = .075;
         foreach (double side in new[] { -1d, 1d })
         { frame.Add(OrientedBox(center + u * side * outer, u, v, normal, rail, outer * 2 + rail, .15)); frame.Add(OrientedBox(center + v * side * outer, u, v, normal, outer * 2 + rail, rail, .15)); }
-        Add(part, Merge(frame), _shell);
-        Add(part, Annulus(center + normal * .077, normal, radius, .035), _o.Lighting == "Off" ? _metal : _led, _o.Lighting != "Off");
+        if (!integrated) Add(part, Merge(frame), _shell);
+        Add(part, Annulus(center + normal * .077, normal, radius, integrated ? .022 : .035), _o.Lighting == "Off" ? integrated ? Color.FromRgb(100, 109, 122) : _metal : _led, _o.Lighting != "Off");
         Add(part, Annulus(center, normal, radius * .97, .10), _dark);
-        Pipe(part, center - normal * .09, center + normal * .10, radius * .19, _metal);
+        Pipe(part, center - normal * .09, center + normal * .10, radius * .19, integrated ? Color.FromRgb(62, 69, 79) : _metal);
         var blades = new MeshGeometry3D();
-        for (int blade = 0; blade < 9; blade++)
+        int bladeCount = integrated ? 11 : 9;
+        for (int blade = 0; blade < bladeCount; blade++)
         {
             int start = blades.Positions.Count;
             for (int step = 0; step <= 10; step++)
             {
-                double t = step / 10d, r = radius * (.19 + t * .69), a = blade * Math.PI * 2 / 9 + t * .55;
+                double t = step / 10d, r = radius * (.19 + t * .69), a = blade * Math.PI * 2 / bladeCount + t * (integrated ? .36 : .55);
                 foreach (double offset in new[] { 0d, .13 + .27 * t }) { blades.Positions.Add(center + (u * Math.Cos(a + offset) + v * Math.Sin(a + offset)) * r + normal * .061); blades.Normals.Add(normal); }
                 if (step > 0) foreach (int k in new[] { 0, 3, 1, 0, 2, 3 }) blades.TriangleIndices.Add(start + (step - 1) * 2 + k);
             }
         }
         Add(part, blades, Color.FromRgb(89, 95, 104));
-        foreach (double a in new[] { -1d, 1d }) foreach (double b in new[] { -1d, 1d })
-            Pipe(part, center + u*a*outer + v*b*outer + normal*.077, center + u*a*outer + v*b*outer + normal*.092, .025, _dark);
+        if (integrated) Add(part, Annulus(center + normal * .105, normal, radius * .13, .016), Color.FromRgb(137, 146, 159));
+        else foreach (double a in new[] { -1d, 1d }) foreach (double b in new[] { -1d, 1d })
+                Pipe(part, center + u*a*outer + v*b*outer + normal*.077, center + u*a*outer + v*b*outer + normal*.092, .025, _dark);
+    }
+    private void Curve(string part, Point3D a, Point3D b, Point3D c, Point3D d, double radius, Color color)
+    {
+        var segments = new List<MeshGeometry3D>(); var previous = a;
+        for (int i = 1; i <= 24; i++)
+        {
+            double t = i / 24d, q = 1 - t;
+            var next = new Point3D(q*q*q*a.X + 3*q*q*t*b.X + 3*q*t*t*c.X + t*t*t*d.X, q*q*q*a.Y + 3*q*q*t*b.Y + 3*q*t*t*c.Y + t*t*t*d.Y, q*q*q*a.Z + 3*q*q*t*b.Z + 3*q*t*t*c.Z + t*t*t*d.Z);
+            segments.Add(Tube(previous, next, radius)); previous = next;
+        }
+        Add(part, Merge(segments), color);
+    }
+    private static MeshGeometry3D FanPanel(Point3D center, double halfWidth, double halfDepth, double hole)
+    {
+        var mesh = new MeshGeometry3D();
+        for (int i = 0; i < 64; i++)
+        {
+            int start = mesh.Positions.Count;
+            foreach (var sample in new[] { (i, true), (i, false), (i + 1, false), (i + 1, true) })
+            {
+                double angle = sample.Item1 * Math.PI * 2 / 64, c = Math.Cos(angle), s = Math.Sin(angle);
+                double r = sample.Item2 ? Math.Min(halfWidth / Math.Max(Math.Abs(c), 1e-8), halfDepth / Math.Max(Math.Abs(s), 1e-8)) : hole;
+                mesh.Positions.Add(center + new Vector3D(c*r, 0, s*r)); mesh.Normals.Add(new Vector3D(0, -1, 0));
+            }
+            foreach (int j in new[] { 0, 2, 1, 0, 3, 2 }) mesh.TriangleIndices.Add(start + j);
+        }
+        return mesh;
+    }
+    private static MeshGeometry3D BeveledPrism(Point3D center, double width, double height, double depth, double bevel)
+    {
+        double w = width / 2, d = depth / 2; bevel = Math.Min(bevel, Math.Min(w, d) * .8);
+        var outline = new[] { new Vector3D(-w + bevel, 0, -d), new Vector3D(w - bevel, 0, -d), new Vector3D(w, 0, -d + bevel), new Vector3D(w, 0, d - bevel), new Vector3D(w - bevel, 0, d), new Vector3D(-w + bevel, 0, d), new Vector3D(-w, 0, d - bevel), new Vector3D(-w, 0, -d + bevel) };
+        var mesh = new MeshGeometry3D();
+        for (int i = 0; i < outline.Length; i++)
+        {
+            int j = (i + 1) % outline.Length;
+            foreach (bool top in new[] { false, true })
+            {
+                int start = mesh.Positions.Count; var axis = new Vector3D(0, top ? height / 2 : -height / 2, 0);
+                foreach (var p in top ? new[] { new Vector3D(), outline[j], outline[i] } : new[] { new Vector3D(), outline[i], outline[j] }) { mesh.Positions.Add(center + axis + p); mesh.Normals.Add(new Vector3D(0, top ? 1 : -1, 0)); }
+                foreach (int k in new[] { 0, 1, 2 }) mesh.TriangleIndices.Add(start + k);
+            }
+            var edge = outline[j] - outline[i]; var normal = new Vector3D(edge.Z, 0, -edge.X); normal.Normalize(); int side = mesh.Positions.Count;
+            foreach (var p in new[] { outline[i] + new Vector3D(0, -height / 2, 0), outline[i] + new Vector3D(0, height / 2, 0), outline[j] + new Vector3D(0, height / 2, 0), outline[j] + new Vector3D(0, -height / 2, 0) }) { mesh.Positions.Add(center + p); mesh.Normals.Add(normal); }
+            foreach (int k in new[] { 0, 1, 2, 0, 2, 3 }) mesh.TriangleIndices.Add(side + k);
+        }
+        return mesh;
     }
     private static void Basis(Vector3D normal, out Vector3D u, out Vector3D v)
     { normal.Normalize(); u = Vector3D.CrossProduct(Math.Abs(normal.Y) < .9 ? new Vector3D(0, 1, 0) : new Vector3D(0, 0, 1), normal); u.Normalize(); v = Vector3D.CrossProduct(normal, u); }

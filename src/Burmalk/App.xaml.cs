@@ -62,8 +62,11 @@ namespace Burmalk
                 PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Air.png"), new Models.PcModelOptions(), false, "Белый корпус · воздушный кулер");
                 PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Aio.png"), new Models.PcModelOptions(), true, "Белый корпус · водяное охлаждение");
                 PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Graphite.png"), new Models.PcModelOptions { CaseColor = "Graphite", Lighting = "Teal", GpuFans = 3, VerticalGpu = true, RamModules = 4 }, false, "Графит · вертикальная GPU с 3 вентиляторами");
+                PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-GPU-Detail.png"), new Models.PcModelOptions { GpuFans = 3, VerticalGpu = true }, false, "Видеокарта · 3 вентилятора", 30, true);
+                PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Vertical.png"), new Models.PcModelOptions { GpuFans = 3, VerticalGpu = true }, false, "Белый корпус · новая видеокарта");
                 PcModelPreview.ExportObj(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Air.obj"), new Models.PcModelOptions(), false);
                 PcModelPreview.ExportObj(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Aio.obj"), new Models.PcModelOptions(), true);
+                PcModelPreview.ExportObj(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-GPU-Detail.obj"), new Models.PcModelOptions { GpuFans = 3, VerticalGpu = true }, false, true);
                 Shutdown(); return;
             }
             int overlayTestArg=Array.IndexOf(args,"--overlay-test-dir");
