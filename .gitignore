@@ -5,6 +5,7 @@
 dist/*.exe
 dist/3D-preview/
 dist/Burmalk-3D-Preview*.zip
+dist/Burmalk-PC-Complete.zip
 *.user
 *.suo
 *.log

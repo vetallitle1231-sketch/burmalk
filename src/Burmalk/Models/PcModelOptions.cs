@@ -10,6 +10,13 @@ public sealed class PcModelOptions
     public int GpuFans = 2, RamModules = 2, FrontFans = 2, RearFans = 1, TopFans = 2, BottomFans = 0;
     public int AirCoolerFans = 1, RadiatorFans = 2, Drives = 2;
     public bool VerticalGpu;
+    public static PcModelOptions CompleteTower() => new PcModelOptions
+    {
+        CaseColor = "White", SidePanel = "Open", BoardSize = "ATX", Lighting = "Teal",
+        GpuFans = 3, VerticalGpu = true, RamModules = 2,
+        FrontFans = 3, RearFans = 1, TopFans = 2, BottomFans = 0,
+        AirCoolerFans = 1, RadiatorFans = 3, Drives = 2
+    };
     public void Normalize()
     {
         if (CaseColor is not ("White" or "Graphite" or "Silver")) CaseColor = "White";

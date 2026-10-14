@@ -59,6 +59,8 @@ namespace Burmalk
             {
                 Verification.DirectoryPath = System.IO.Path.GetFullPath(args[modelPreviewArg + 1]);
                 System.IO.Directory.CreateDirectory(Verification.DirectoryPath);
+                PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Complete.png"), Models.PcModelOptions.CompleteTower(), false, "Полная сборка Burmalk · всё в одном ПК", 20);
+                PcModelPreview.ExportObj(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Complete.obj"), Models.PcModelOptions.CompleteTower(), false);
                 PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Air.png"), new Models.PcModelOptions(), false, "Белый корпус · воздушный кулер");
                 PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Aio.png"), new Models.PcModelOptions(), true, "Белый корпус · водяное охлаждение");
                 PcModelPreview.Save(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-PC-Graphite.png"), new Models.PcModelOptions { CaseColor = "Graphite", Lighting = "Teal", GpuFans = 3, VerticalGpu = true, RamModules = 4 }, false, "Графит · вертикальная GPU с 3 вентиляторами");

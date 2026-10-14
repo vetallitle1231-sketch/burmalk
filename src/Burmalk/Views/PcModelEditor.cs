@@ -36,6 +36,7 @@ internal sealed class PcModelEditor : UserControl
         root.Children.Add(fields);
         var actions = new WrapPanel();
         actions.Children.Add(ViewUi.Button("К 3D-модели ↑", showModel));
+        actions.Children.Add(ViewUi.Button("Собрать ПК целиком", ApplyCompleteBuild));
         actions.Children.Add(ViewUi.Button("Белый корпус · сброс модели", () => { App.Store.Settings.PcModel = new PcModelOptions(); Commit(); Synchronize(); }));
         actions.Children.Add(ViewUi.Button("Графит + бирюза", () => { Options.CaseColor = "Graphite"; Options.Lighting = "Teal"; Commit(); Synchronize(); }));
         root.Children.Add(actions);
@@ -53,5 +54,12 @@ internal sealed class PcModelEditor : UserControl
         choice.SelectionChanged += (s, e) => { if (_updating || choice.SelectedIndex < 0) return; set(choice.SelectedIndex); Commit(); };
     }
     private void Commit() { Options.Normalize(); App.Store.Save(); _changed(); }
+    internal void ApplyCompleteBuild()
+    {
+        App.Store.Settings.PcModel = PcModelOptions.CompleteTower();
+        App.Store.Settings.PcModelChassis = "Desktop";
+        if (App.Store.Settings.PcModelCooling != "Aio") App.Store.Settings.PcModelCooling = "Air";
+        Commit(); Synchronize();
+    }
     internal void Synchronize() { _updating = true; try { foreach (var sync in _sync) sync(); } finally { _updating = false; } }
 }

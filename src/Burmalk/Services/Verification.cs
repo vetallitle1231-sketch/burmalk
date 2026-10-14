@@ -100,11 +100,24 @@ namespace Burmalk.Services
                         var widget = new Burmalk.Views.PcView3D(true); widget.Refresh();
                         Check(widget.AppearanceSignature == pc3d.AppearanceSignature, "Home widget uses the same model appearance");
                     }
+                    settings.PcModelCooling = "Air";
+                    Check(Click(pc3d, "Собрать ПК целиком"), "Complete tower is available in the model toolbar");
+                    Check(pc3d.ModelVariant == "Desktop/Air" && settings.PcModel.Signature == PcModelOptions.CompleteTower().Signature, "Complete build combines all selected components with the user's air cooler");
+                    var complete = PcModelScene.Desktop(settings.PcModel, false);
+                    Check(new[] { "case", "board", "cpu", "gpu", "ram", "disks", "cooling" }.All(part => complete.Parts.Values.Contains(part)), "Complete tower contains every component in the same scene");
+                    var completeWidget = new Burmalk.Views.PcView3D(true); completeWidget.Refresh();
+                    Check(completeWidget.AppearanceSignature == pc3d.AppearanceSignature, "Complete tower is shared with the dashboard widget");
+                    var completeRead = new DataStore(App.Store.RootDir); completeRead.Load();
+                    Check(completeRead.Settings.PcModel.Signature == settings.PcModel.Signature && completeRead.Settings.PcModelCooling == "Air", "Complete build and cooler choice persist together");
+                    Capture(Application.Current.MainWindow, "Model-complete-tower");
+                    settings.PcModelCooling = "Aio"; Click(pc3d, "Собрать ПК целиком");
+                    Check(pc3d.ModelVariant == "Desktop/Aio", "Complete build preserves a selected AIO instead of mixing cooling types");
+                    PcModelPreview.Save(Path.Combine(DirectoryPath, "Burmalk-PC-Complete.png"), PcModelOptions.CompleteTower(), false, "Полная сборка Burmalk · всё в одном ПК", 20);
                     PcModelPreview.Save(Path.Combine(DirectoryPath, "Burmalk-PC-Air.png"), new PcModelOptions(), false, "Белый корпус · воздушный кулер");
                     PcModelPreview.Save(Path.Combine(DirectoryPath, "Burmalk-PC-Aio.png"), new PcModelOptions(), true, "Белый корпус · водяное охлаждение");
                     PcModelPreview.Save(Path.Combine(DirectoryPath, "Burmalk-PC-Graphite.png"), new PcModelOptions { CaseColor = "Graphite", Lighting = "Teal", GpuFans = 3, VerticalGpu = true, RamModules = 4 }, false, "Графит · вертикальная GPU с 3 вентиляторами");
                 }
-                finally { settings.PcModel = oldModel; settings.PcModelChassis = oldChassis; pc3d.Refresh(); }
+                finally { settings.PcModel = oldModel; settings.PcModelChassis = oldChassis; settings.PcModelCooling = oldCooling; pc3d.Refresh(); }
                 Check(Click(pc3d, "Настроить сборку"), "Model editor can be opened from the main toolbar");
                 Capture(Application.Current.MainWindow, "Model-editor");
                 Check(Click(pc3d, "К 3D-модели"), "Model editor returns to the interactive view");

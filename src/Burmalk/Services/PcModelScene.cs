@@ -70,6 +70,24 @@ internal sealed class PcModelScene
         for (int i = 0; i < (_o.BoardSize == "ITX" ? 3 : 7); i++) Box("board", -.32 + bw / 2 - .12, .65 - i * .2, -1.43, .16, .11, .18, _dark);
         // Small traces and cables rather than manufacturer logos or model names.
         for (int i = 0; i < 10; i++) Box("board", -.72 + i * .18, .40, -1.491, .012, .32 + (i % 3) * .10, .009, Color.FromRgb(83, 87, 91));
+        // Connector blocks and routed power leads tie the board into the complete build.
+        double boardRight = -.32 + bw / 2;
+        Box("board", boardRight - .07, 1.12, -1.31, .15, .53, .22, _dark);
+        for (int wire = 0; wire < 4; wire++)
+        {
+            double y = .97 + wire * .075;
+            Curve("board", new Point3D(boardRight, y, -1.21), new Point3D(boardRight + .26, y, -1.07), new Point3D(1.70, y - .16, -1.16), new Point3D(1.73, .32 + wire * .035, -1.62), .022, Color.FromRgb((byte)(75 + wire * 7), (byte)(80 + wire * 7), (byte)(90 + wire * 7)));
+        }
+        Box("board", -1.26, 2.46, -1.29, .36, .11, .20, _dark);
+        for (int wire = 0; wire < 3; wire++)
+            Curve("board", new Point3D(-1.37 + wire * .11, 2.48, -1.20), new Point3D(-1.60 + wire * .11, 2.74, -1.18), new Point3D(-1.86 + wire * .07, 2.80, -1.27), new Point3D(-1.93, 2.66, -1.60), .022, Color.FromRgb(58, 65, 75));
+        if (_o.Drives > 0)
+        {
+            Box("disks", -.39, .13, -1.33, 1.32, .21, .13, _dark);
+            var m2Fins = new List<MeshGeometry3D>();
+            for (int i = 0; i < 17; i++) m2Fins.Add(Cuboid(new Point3D(-.98 + i * .071, .13, -1.25), .025, .16, .025));
+            Add("disks", Merge(m2Fins), _metal);
+        }
         for (int i = 0; i < _o.RamModules; i++)
         {
             double x = .26 + i * (_o.BoardSize == "ITX" ? .21 : .265);
@@ -81,7 +99,7 @@ internal sealed class PcModelScene
         Box("cpu", -.68, 1.22, -1.23, .73, .73, .22, _metal);
         if (water) WaterCooler(); else AirCooler();
         if (_o.GpuFans > 0) GraphicsCard();
-        for (int i = 0; i < _o.Drives; i++)
+        for (int i = 0; i < Math.Max(0, _o.Drives - 1); i++)
         {
             Box("disks", 1.36, -1.26 - i * .15, -.8, .71, .10, 1.32, _dark);
             Box("disks", 1.36, -1.20 - i * .15, -.8, .60, .008, 1.20, _metal);

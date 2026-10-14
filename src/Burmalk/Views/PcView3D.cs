@@ -29,6 +29,8 @@ namespace Burmalk.Views
         private string _sceneKey, _appearanceKey;
         private PcModelEditor _editor;
         private Expander _editorSection;
+        private ComboBox _chassisChoice, _coolingChoice;
+        private bool _syncChoices;
         internal string AppearanceSignature => _appearanceKey;
         private readonly bool _compact;
         internal string SelectedPart => _selected;
@@ -46,6 +48,7 @@ namespace Burmalk.Views
                 string id = part.Item1; var button = ViewUi.Button(part.Item2, () => SelectPart(id)); _buttons[id] = button; tools.Children.Add(button);
             }
             if (!compact) tools.Children.Add(ViewUi.Button("Настроить сборку", () => { _editorSection.IsExpanded = true; root.UpdateLayout(); _editor.BringIntoView(); }));
+            if (!compact) tools.Children.Add(ViewUi.Button("Собрать ПК целиком", () => _editor.ApplyCompleteBuild()));
             root.Children.Add(tools);
             var main = new Grid { Margin = new Thickness(0, 0, 0, 16) };
             main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) }); main.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -58,11 +61,11 @@ namespace Burmalk.Views
             var controls = new WrapPanel(); controls.Children.Add(ViewUi.Button("Сбросить камеру", ResetCamera));
             controls.Children.Add(ViewUi.Button("Приблизить +", () => Zoom(-1))); controls.Children.Add(ViewUi.Button("Отдалить −", () => Zoom(1))); controls.Children.Add(_spin); root.Children.Add(controls);
             root.Children.Add(ViewUi.Text("Модель иллюстративная: форма и расположение деталей не являются точным сканом сборки. Нет данных — датчик не поддерживается или недоступен."));
-            var chassisChoice = new ComboBox { ItemsSource = new[] { "Авто: по данным корпуса", "Настольный ПК", "Ноутбук" }, SelectedIndex = App.Store.Settings.PcModelChassis == "Laptop" ? 2 : App.Store.Settings.PcModelChassis == "Desktop" ? 1 : 0, MinWidth = 210, Margin = new Thickness(8) };
-            var coolingChoice = new ComboBox { ItemsSource = new[] { "Тип охлаждения не указан", "Воздушный кулер", "СЖО / водяное" }, SelectedIndex = App.Store.Settings.PcModelCooling == "Aio" ? 2 : App.Store.Settings.PcModelCooling == "Air" ? 1 : 0, MinWidth = 210, Margin = new Thickness(8) };
-            var choices = new WrapPanel(); choices.Children.Add(chassisChoice); choices.Children.Add(coolingChoice); root.Children.Insert(4, choices);
-            chassisChoice.SelectionChanged += (s, e) => { App.Store.Settings.PcModelChassis = chassisChoice.SelectedIndex == 2 ? "Laptop" : chassisChoice.SelectedIndex == 1 ? "Desktop" : "Auto"; App.Store.Save(); Refresh(); };
-            coolingChoice.SelectionChanged += (s, e) => { App.Store.Settings.PcModelCooling = coolingChoice.SelectedIndex == 2 ? "Aio" : coolingChoice.SelectedIndex == 1 ? "Air" : "Auto"; App.Store.Save(); Refresh(); };
+            _chassisChoice = new ComboBox { ItemsSource = new[] { "Авто: по данным корпуса", "Настольный ПК", "Ноутбук" }, SelectedIndex = App.Store.Settings.PcModelChassis == "Laptop" ? 2 : App.Store.Settings.PcModelChassis == "Desktop" ? 1 : 0, MinWidth = 210, Margin = new Thickness(8) };
+            _coolingChoice = new ComboBox { ItemsSource = new[] { "Тип охлаждения не указан", "Воздушный кулер", "СЖО / водяное" }, SelectedIndex = App.Store.Settings.PcModelCooling == "Aio" ? 2 : App.Store.Settings.PcModelCooling == "Air" ? 1 : 0, MinWidth = 210, Margin = new Thickness(8) };
+            var choices = new WrapPanel(); choices.Children.Add(_chassisChoice); choices.Children.Add(_coolingChoice); root.Children.Insert(4, choices);
+            _chassisChoice.SelectionChanged += (s, e) => { if (_syncChoices) return; App.Store.Settings.PcModelChassis = _chassisChoice.SelectedIndex == 2 ? "Laptop" : _chassisChoice.SelectedIndex == 1 ? "Desktop" : "Auto"; App.Store.Save(); Refresh(); };
+            _coolingChoice.SelectionChanged += (s, e) => { if (_syncChoices) return; App.Store.Settings.PcModelCooling = _coolingChoice.SelectedIndex == 2 ? "Aio" : _coolingChoice.SelectedIndex == 1 ? "Air" : "Auto"; App.Store.Save(); Refresh(); };
             if (compact) { main.Children.Remove(sceneBorder); sceneBorder.Child = null; Content = stage; hint.Visibility = Visibility.Collapsed; }
             else
             {
@@ -139,6 +142,13 @@ namespace Burmalk.Views
             var h = App.Monitor.Hardware.Snapshot; var s = App.Monitor.LastSample;
             string key = (App.Store.Settings.PcModelChassis == "Auto" ? h.System.IsLaptop ? "Laptop" : "Desktop" : App.Store.Settings.PcModelChassis) + "/" + App.Store.Settings.PcModelCooling;
             if (_sceneKey != key || _appearanceKey != App.Store.Settings.PcModel.Signature) { BuildScene(); if (!_compact) SelectPart(_selected); }
+            _syncChoices = true;
+            try
+            {
+                _chassisChoice.SelectedIndex = App.Store.Settings.PcModelChassis == "Laptop" ? 2 : App.Store.Settings.PcModelChassis == "Desktop" ? 1 : 0;
+                _coolingChoice.SelectedIndex = App.Store.Settings.PcModelCooling == "Aio" ? 2 : App.Store.Settings.PcModelCooling == "Air" ? 1 : 0;
+            }
+            finally { _syncChoices = false; }
             bool fresh = DateTime.UtcNow.Ticks - s.TimestampUtc < TimeSpan.TicksPerSecond * 15;
             string N(double value, string unit) => PassportService.Number(fresh ? value : double.NaN, unit);
             _partTitle.Text = _selected switch { "case" => "Корпус", "cpu" => "Процессор", "gpu" => "Видеокарта", "ram" => "Память", "board" => "Материнская плата", "disks" => "Накопители", _ => "Охлаждение" };
