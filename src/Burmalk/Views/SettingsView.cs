@@ -8,7 +8,7 @@ namespace Burmalk.Views
     public class SettingsView : UserControl,IRefreshable
     {
         private readonly TextBox _interval,_history,_endpoint,_refresh,_hotkey;
-        private readonly CheckBox _overlay,_detect,_cpu,_gpu,_ram,_vram,_sensors;
+        private readonly CheckBox _overlay,_detect,_sensors;
         private readonly ComboBox _theme;
         private readonly CheckBox _compact;
         private readonly Slider _dim;
@@ -36,15 +36,26 @@ namespace Burmalk.Views
             root.Children.Add(ViewUi.Panel("Local AI · Ollama",ViewUi.Text("Server address (HTTP or HTTPS)"),_endpoint,ViewUi.Text("Monitoring uses version and loaded-model endpoints. No inference runs automatically.")));
             _overlay=Check("Show Burmalk overlay through RTSS",s.OverlayEnabled); _detect=Check("Detect recognized games and configured profiles",s.GameDetectionEnabled);
             _refresh=Input(s.OverlayRefreshMs.ToString()); _hotkey=Input(s.OverlayHotkey);
-            _cpu=Check("CPU",s.OverlayShowCpu); _gpu=Check("GPU and temperature",s.OverlayShowGpu); _ram=Check("RAM",s.OverlayShowRam); _vram=Check("VRAM",s.OverlayShowVram);
             root.Children.Add(ViewUi.Panel("RTSS",ViewUi.Text("Burmalk sends live figures to RTSS in fullscreen, borderless and windowed games. The game must be supported by RTSS. RTSS controls position, size and color. If the game was open before RTSS, restart the game when convenient."),ViewUi.Button("Start RTSS",RtssOverlay.Start),ViewUi.Button("Get RTSS",()=>System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/"){UseShellExecute=true}))));
             root.Children.Add(_hotkeyStatus);Refresh();
-            root.Children.Add(ViewUi.Panel("Game overlay",_overlay,ViewUi.Text("Refresh (300–10000 ms)"),_refresh,ViewUi.Text("Global toggle hotkey (F1–F12)"),_hotkey,_cpu,_gpu,_ram,_vram));
+            root.Children.Add(ViewUi.Panel("Game overlay",_overlay,ViewUi.Text("Refresh (300–10000 ms)"),_refresh,ViewUi.Text("Global toggle hotkey (F1–F12)"),_hotkey));
+            root.Children.Add(ViewUi.Panel("FPS-оверлей · кастомизация",new OverlayCustomizationPanel()));
+            root.Children.Add(ViewUi.Panel("Сохранение настроек",ViewUi.Text("Настройки, расположение виджетов, фон и 3D-модель хранятся отдельно от программы и сохраняются при обновлении. Запись защищена от обрыва; доступны последняя и предыдущая резервные копии."), ViewUi.Text(App.Store.PersistenceStatus)));
             root.Children.Add(ViewUi.Panel("Gaming",_detect,ViewUi.Text("Settings, sessions and profiles are stored in "+App.Store.RootDir)));
             root.Children.Add(ViewUi.Button("Save settings",Save)); root.Children.Add(_status); Content=root;
+            // Valid edits persist without relying on an eventual graceful shutdown.
+            foreach (var input in new[] { _interval, _history, _endpoint, _refresh, _hotkey }) input.LostKeyboardFocus += (_, _) => Save();
+            foreach (var check in new[] { _overlay, _detect, _sensors }) check.Click += (_, _) => Save();
+            _theme.SelectionChanged += (_, _) => ApplyAppearance();
+            _compact.Click += (_, _) => ApplyAppearance();
+            _dim.ValueChanged += (_, _) => ApplyAppearance();
         }
         private static TextBox Input(string text)=>new TextBox {Text=text,MaxWidth=500,HorizontalAlignment=HorizontalAlignment.Left,MinWidth=220};
-        public void Refresh()=>_hotkeyStatus.Text=OverlayManager.HotkeyStatus+"\n"+OverlayManager.DisplayStatus+"\n"+RtssOverlay.Status;
+        public void Refresh()
+        {
+            _hotkeyStatus.Text=OverlayManager.HotkeyStatus+"\n"+OverlayManager.DisplayStatus+"\n"+RtssOverlay.Status;
+            _overlay.IsChecked=App.Store.Settings.OverlayEnabled;
+        }
         private static CheckBox Check(string text,bool value)=>new CheckBox{Content=text,IsChecked=value};
         public void SelectPhoto(string file)
         {
@@ -68,7 +79,7 @@ namespace Burmalk.Views
         private void ApplyAppearance()
         {
             var s=App.Store.Settings;s.Theme=_theme.SelectedItem as string??"Dark";s.CompactLayout=_compact.IsChecked==true;s.BackgroundDim=_dim.Value;
-            Appearance.Apply(s);App.Store.Save();_status.Text="Appearance saved.";
+            Appearance.Apply(s);App.Store.Save();_status.Text=App.Store.LastSaveSucceeded?"Appearance saved.":App.Store.PersistenceStatus;
         }
         private void Save()
         {
@@ -77,12 +88,13 @@ namespace Burmalk.Views
                 !Uri.TryCreate(_endpoint.Text.Trim(),UriKind.Absolute,out var uri)||(uri.Scheme!="http"&&uri.Scheme!="https")||!string.IsNullOrEmpty(uri.UserInfo) ||
                 !System.Text.RegularExpressions.Regex.IsMatch(_hotkey.Text.Trim(),@"^F([1-9]|1[0-2])$"))
             { _status.Text="Check the ranges, endpoint and F1–F12 hotkey."; return; }
-            var s=App.Store.Settings; s.UpdateIntervalMs=interval; s.GraphHistorySeconds=history;s.AiEndpoint=uri.ToString().TrimEnd('/');
+            var s=App.Store.Settings;
+            bool overlayChanged=s.OverlayEnabled!=(_overlay.IsChecked==true)||s.OverlayHotkey!=_hotkey.Text.Trim();
+            s.UpdateIntervalMs=interval; s.GraphHistorySeconds=history;s.AiEndpoint=uri.ToString().TrimEnd('/');
             s.CpuSensorsEnabled=_sensors.IsChecked==true;
             s.OverlayEnabled=_overlay.IsChecked==true;s.GameDetectionEnabled=_detect.IsChecked==true;s.OverlayRefreshMs=refresh;s.OverlayHotkey=_hotkey.Text.Trim();
-            s.OverlayShowCpu=_cpu.IsChecked==true;s.OverlayShowGpu=_gpu.IsChecked==true;s.OverlayShowRam=_ram.IsChecked==true;s.OverlayShowVram=_vram.IsChecked==true;
             ApplyAppearance();
-            App.Monitor.SetInterval(interval);App.Ai.SetEndpoint(s.AiEndpoint);OverlayManager.ApplySettings();App.Store.Save();_status.Text="Settings saved.";
+            App.Monitor.SetInterval(interval);App.Ai.SetEndpoint(s.AiEndpoint);if(overlayChanged)OverlayManager.ApplySettings();else OverlayManager.RefreshContent();App.Store.Save();_status.Text=App.Store.LastSaveSucceeded?"Settings saved.":App.Store.PersistenceStatus;
         }
     }
     public class AiView : UserControl,IRefreshable

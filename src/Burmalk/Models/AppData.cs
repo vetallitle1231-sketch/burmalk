@@ -48,6 +48,13 @@ namespace Burmalk.Models
         public bool OverlayShowCpu = true;
         public bool OverlayShowVram = true;
         public bool OverlayShowRam = true;
+        public bool OverlayShowFps = true;
+        public bool OverlayShowAverage = true;
+        public bool OverlayShowFrameTime = true;
+        public bool OverlayShowNetwork = true;
+        public string OverlayLayout = "Lines";
+        public string OverlayColor = "FFFFFF";
+        public int OverlayTextScale = 100;
 
         // AI
         public string AiEndpoint = "http://127.0.0.1:11434";

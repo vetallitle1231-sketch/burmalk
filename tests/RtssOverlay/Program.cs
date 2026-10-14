@@ -60,4 +60,17 @@ Check(first.Contains("NET DOWN 500 KB/s  UP 60 KB/s"),"Show network throughput")
 string second=display.Build(settings,null,game,sample,new RtssOverlay.FrameStats(60,16),now.AddSeconds(1));
 Check(second.Contains("AVG 90"),"Update mean FPS from RTSS samples");
 Check(!display.Build(settings,null,new GameCurrent{Pid=77},sample,new RtssOverlay.FrameStats(double.NaN,double.NaN),now.AddSeconds(2)).Contains("FPS"),"Reset FPS at a new game and omit unavailable metrics");
+settings.OverlayShowFps=false;settings.OverlayShowFrameTime=false;settings.OverlayShowNetwork=false;
+var custom=display.Build(settings,null,game,sample,frames,now);
+Check(!custom.Contains("FPS ")&&custom.Contains("AVG 120")&&!custom.Contains("FRAME ")&&!custom.Contains("NET "),"Independent FPS, average, frame time and network switches");
+settings.OverlayColor="55e6ce";settings.OverlayTextScale=140;settings.OverlayLayout="Compact";
+custom=display.Build(settings,null,game,sample,frames,now);
+Check(custom.StartsWith("<C=55E6CE><S=105>BURMALK<S=140>")&&custom.EndsWith("<S><C>"),"RTSS color and percentage size tags are scoped; branding is smaller");
+Check(!custom.Contains('\n')&&custom.Contains("  |  "),"Compact overlay layout");
+settings.OverlayColor="bad<tag>";settings.OverlayTextScale=int.MaxValue;
+Check(display.Build(settings,null,game,sample,frames,now).StartsWith("<C=FFFFFF><S=135>"),"Unsafe color and size are bounded");
+settings.OverlayShowAverage=false;settings.OverlayShowCpu=false;settings.OverlayShowGpu=false;settings.OverlayShowRam=false;settings.OverlayShowVram=false;
+Check(display.BuildPlain(settings,null,game,sample,frames,now)=="BURMALK","Empty selection retains small application identity");
+var profile=new GameProfile {ShowCpu=true,ShowGpu=false,ShowRam=false,ShowVram=false};
+Check(display.BuildPlain(settings,profile,game,sample,frames,now).Contains("CPU "),"Per-game hardware preferences still apply");
 Console.WriteLine($"PASS: {checks} RTSS protocol checks using an isolated anonymous mapping.");

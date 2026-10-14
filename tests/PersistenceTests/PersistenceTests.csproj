@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Burmalk/Services/DataStore.cs" Link="DataStore.cs" />
+    <Compile Include="../../src/Burmalk/Services/DurableJson.cs" Link="DurableJson.cs" />
+    <Compile Include="../../src/Burmalk/Models/AppData.cs" Link="AppData.cs" />
+    <Compile Include="../../src/Burmalk/Models/PcModelOptions.cs" Link="PcModelOptions.cs" />
+    <Compile Include="../../src/Burmalk/Models/PerformanceRecord.cs" Link="PerformanceRecord.cs" />
+    <Compile Include="../../src/Burmalk/Models/DiskMeasurement.cs" Link="DiskMeasurement.cs" />
+    <Compile Include="../../src/Burmalk/Models/GameModels.cs" Link="GameModels.cs" />
+  </ItemGroup>
+</Project>

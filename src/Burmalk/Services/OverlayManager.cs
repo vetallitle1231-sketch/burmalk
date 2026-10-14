@@ -51,6 +51,7 @@ namespace Burmalk.Services
                 else{int error=Marshal.GetLastWin32Error();HotkeyStatus=error==1409?"F"+key+" is used by another app. Choose a different hotkey.":"Hotkey registration failed (Windows error "+error+").";ErrorLog.Write(HotkeyStatus);}
             }
         }
+        public static void RefreshContent() => _nextContent = DateTime.MinValue;
         private static IntPtr Hook(IntPtr hwnd,int msg,IntPtr w,IntPtr l,ref bool handled)
         {
             if(msg==0x0312&&w.ToInt32()==HotkeyId)

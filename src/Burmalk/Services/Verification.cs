@@ -47,7 +47,23 @@ namespace Burmalk.Services
         {
             if(DirectoryPath==null)return;
             // Long stress tests are opt-in and must never start during the UI smoke test.
-            if(page=="Settings")Click(view,"Save settings");
+            if(page=="Settings")
+            {
+                Click(view,"Save settings");
+                var custom = Find<Burmalk.Views.OverlayCustomizationPanel>(view);
+                Check(custom != null, "FPS overlay customization panel exists");
+                if (custom != null)
+                {
+                    var size = Find<Slider>(custom); size.Value = 140;
+                    Click(custom, "Бирюзовый");
+                    var read = new DataStore(App.Store.RootDir); read.Load();
+                    Check(read.Settings.OverlayTextScale == 140 && read.Settings.OverlayColor == "55E6CE", "Overlay controls immediately persist color and size");
+                    var layout = Find<ComboBox>(custom); layout.SelectedIndex = 1;
+                    read.Load(); Check(read.Settings.OverlayLayout == "Compact", "Compact RTSS layout persists without a Save click");
+                    custom.BringIntoView(); Application.Current.MainWindow.UpdateLayout();
+                    Capture(Application.Current.MainWindow, "Settings-FPS-overlay-customization");
+                }
+            }
             if (page == "Dashboard" && view is Burmalk.Views.DashboardView modelDashboard)
             {
                 if (Array.IndexOf(modelDashboard.CurrentOrder, "pc3d") > Array.IndexOf(modelDashboard.CurrentOrder, "cpu")) modelDashboard.MoveCard("pc3d", "cpu");

@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Linq;
 using System.Threading;
+using System.Text.Json.Nodes;
 using Burmalk.Models;
 
 namespace Burmalk.Services
@@ -16,6 +17,10 @@ namespace Burmalk.Services
     public class DataStore
     {
         private readonly object _gate = new object();
+        private readonly HashSet<string> _unrecoverable = new(StringComparer.OrdinalIgnoreCase);
+        private JsonObject _settingsBaseline;
+        public string PersistenceStatus { get; private set; } = "";
+        public bool LastSaveSucceeded { get; private set; } = true;
         private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
         {
             WriteIndented = true, IncludeFields = true, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
@@ -81,8 +86,12 @@ namespace Burmalk.Services
                 Settings.UpdateIntervalMs = Math.Clamp(Settings.UpdateIntervalMs, 300, 10000);
                 Settings.GraphHistorySeconds = Math.Clamp(Settings.GraphHistorySeconds, 10, 3600);
                 Settings.OverlayRefreshMs = Math.Clamp(Settings.OverlayRefreshMs, 300, 10000);
+                Settings.OverlayTextScale = Math.Clamp(Settings.OverlayTextScale, 60, 180);
+                if (Settings.OverlayLayout != "Compact") Settings.OverlayLayout = "Lines";
+                if (!System.Text.RegularExpressions.Regex.IsMatch(Settings.OverlayColor ?? "", "^[0-9A-Fa-f]{6}$")) Settings.OverlayColor = "FFFFFF";
                 if(!Appearance.Themes.Contains(Settings.Theme))Settings.Theme="Burmalk";
                 Settings.BackgroundDim=double.IsFinite(Settings.BackgroundDim)?Math.Clamp(Settings.BackgroundDim,0.1,0.9):0.5;
+                _settingsBaseline = JsonSerializer.SerializeToNode(Settings, JsonOpts).AsObject();
             }
         }
 
@@ -91,7 +100,8 @@ namespace Burmalk.Services
         {
             lock (_gate)
             {
-                WriteJson(SettingsPath, Settings);
+                LastSaveSucceeded = true;
+                SaveSettings();
                 WriteJson(SessionsPath, Sessions);
                 WriteJson(ProfilesPath, Profiles);
             }
@@ -191,36 +201,82 @@ namespace Burmalk.Services
             get { lock (_gate) { return Profiles.Values.ToList(); } }
         }
 
-        private static T ReadJson<T>(string path)
+        private T ReadJson<T>(string path)
         {
-            try
+            bool found = false;
+            foreach (string candidate in new[] { path, path + ".lastgood", path + ".bak", path + ".tmp" })
             {
-                if (!File.Exists(path)) return default(T);
-                string txt = File.ReadAllText(path);
-                if (string.IsNullOrWhiteSpace(txt)) return default(T);
-                return JsonSerializer.Deserialize<T>(txt, JsonOpts);
+                if (!File.Exists(candidate)) continue;
+                found = true;
+                try
+                {
+                    var value = JsonSerializer.Deserialize<T>(File.ReadAllText(candidate), JsonOpts);
+                    if (value == null) throw new JsonException("Пустой файл данных.");
+                    if (candidate != path)
+                    {
+                        PreserveInvalid(path);
+                        PersistenceStatus = "Данные восстановлены из резервной копии: " + Path.GetFileName(path);
+                        try
+                        {
+                            using var lease = DurableJson.Lock(path);
+                            DurableJson.Write(path, JsonSerializer.Serialize(value, JsonOpts));
+                        }
+                        catch (Exception ex) { SaveFailure(path, ex); }
+                    }
+                    return value;
+                }
+                catch (Exception ex) { ErrorLog.Write("DataStore.ReadJson " + candidate + ": " + ex.Message); }
             }
-            catch (Exception ex)
+            if (found)
             {
-                ErrorLog.Write("DataStore.ReadJson " + path + ": " + ex.Message);
-                try { File.Copy(path, path+".invalid-"+DateTime.UtcNow.ToString("yyyyMMddHHmmss"), false); } catch { }
-                return default(T);
+                PreserveInvalid(path); _unrecoverable.Add(path);
+                PersistenceStatus = "Не удалось прочитать " + Path.GetFileName(path) + ". Исходный файл сохранён; автоматическая перезапись отключена.";
             }
+            return default;
         }
-
-        private static void WriteJson<T>(string path, T value)
+        private static void PreserveInvalid(string path)
         {
+            try { if (File.Exists(path)) File.Copy(path, path + ".invalid-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N"), false); } catch { }
+        }
+        private void SaveSettings()
+        {
+            if (_unrecoverable.Contains(SettingsPath)) { LastSaveSucceeded = false; return; }
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                string tmp = path + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(value, JsonOpts));
-                File.Move(tmp, path, true);
+                using var lease = DurableJson.Lock(SettingsPath);
+                var local = JsonSerializer.SerializeToNode(Settings, JsonOpts).AsObject();
+                // A stale instance may only replace fields it actually edited. Keep unknown
+                // fields too, so reopening an older build cannot erase new preferences.
+                ReadJson<AppSettings>(SettingsPath);
+                if (_unrecoverable.Contains(SettingsPath)) { LastSaveSucceeded = false; return; }
+                JsonObject merged = null;
+                try { if (File.Exists(SettingsPath)) merged = JsonNode.Parse(File.ReadAllText(SettingsPath)).AsObject(); } catch { }
+                merged ??= (JsonObject)local.DeepClone();
+                foreach (var item in local)
+                    if (_settingsBaseline == null || !JsonNode.DeepEquals(item.Value, _settingsBaseline[item.Key]) || !merged.ContainsKey(item.Key))
+                        merged[item.Key] = item.Value?.DeepClone();
+                DurableJson.Write(SettingsPath, merged.ToJsonString(JsonOpts));
+                // Keep the local baseline: any concurrent fields not edited here remain
+                // disk-owned rather than becoming unintended changes on the next save.
+                _settingsBaseline = (JsonObject)local.DeepClone();
             }
-            catch (Exception ex)
+            catch (Exception ex) { SaveFailure(SettingsPath, ex); }
+        }
+        private void WriteJson<T>(string path, T value)
+        {
+            if (_unrecoverable.Contains(path)) { LastSaveSucceeded = false; return; }
+            try
             {
-                ErrorLog.Write("DataStore.WriteJson " + path + ": " + ex.Message);
+                using var lease = DurableJson.Lock(path);
+                DurableJson.Write(path, JsonSerializer.Serialize(value, JsonOpts));
             }
+            catch (Exception ex) { SaveFailure(path, ex); }
+        }
+        private void SaveFailure(string path, Exception ex)
+        {
+            LastSaveSucceeded = false;
+            PersistenceStatus = "Не удалось сохранить " + Path.GetFileName(path) + ": " + ex.Message;
+            ErrorLog.Write("DataStore.WriteJson " + path + ": " + ex.Message);
         }
     }
 }

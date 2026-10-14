@@ -13,6 +13,14 @@ internal sealed class OverlayText
     private DateTime _lastFpsSample;
     public string Build(AppSettings settings,GameProfile profile,GameCurrent game,Sample sample,RtssOverlay.FrameStats frame,DateTime now)
     {
+        string plain = BuildPlain(settings, profile, game, sample, frame, now);
+        string color = System.Text.RegularExpressions.Regex.IsMatch(settings.OverlayColor ?? "", "^[0-9A-Fa-f]{6}$") ? settings.OverlayColor.ToUpperInvariant() : "FFFFFF";
+        // RTSS S uses an absolute percentage (100 is normal), not a delta.
+        int size = Math.Clamp(settings.OverlayTextScale, 60, 180);
+        return "<C=" + color + "><S=" + (int)(size * .75) + ">BURMALK<S=" + size + ">" + plain.Substring(7) + "<S><C>";
+    }
+    public string BuildPlain(AppSettings settings,GameProfile profile,GameCurrent game,Sample sample,RtssOverlay.FrameStats frame,DateTime now)
+    {
         if(game.Pid!=_pid){_pid=game.Pid;_fpsTotal=0;_fpsCount=0;_lastFpsSample=DateTime.MinValue;}
         var lines=new List<string>{"BURMALK"};
         double fps=frame.Available?frame.Fps:game.FpsAvailable?game.FpsCurrent:double.NaN;
@@ -20,12 +28,14 @@ internal sealed class OverlayText
         {
             _fpsTotal+=fps;_fpsCount++;_lastFpsSample=now;
         }
-        if(double.IsFinite(fps)&&fps>0)
+        if(double.IsFinite(fps)&&fps>0&&(settings.OverlayShowFps||settings.OverlayShowAverage))
         {
             double average=_fpsCount>0?_fpsTotal/_fpsCount:game.FpsAvailable?game.FpsAvg:double.NaN;
-            lines.Add("FPS " + Number(fps,"0") + (double.IsFinite(average)?"  AVG "+Number(average,"0"):""));
+            string value = settings.OverlayShowFps ? "FPS " + Number(fps,"0") : "";
+            if (settings.OverlayShowAverage && double.IsFinite(average)) value += (value.Length > 0 ? "  " : "") + "AVG " + Number(average,"0");
+            if (value.Length > 0) lines.Add(value);
         }
-        if(double.IsFinite(frame.FrameMs))lines.Add("FRAME "+Number(frame.FrameMs,"0.0")+" ms");
+        if(settings.OverlayShowFrameTime&&double.IsFinite(frame.FrameMs)&&frame.FrameMs>0)lines.Add("FRAME "+Number(frame.FrameMs,"0.0")+" ms");
         if(profile?.ShowCpu??settings.OverlayShowCpu)
             lines.Add("CPU "+Percent(sample.CpuPercent)+Optional(sample.CpuTempC," C", "0")+Optional(sample.CpuGhz*1000," MHz","0"));
         if(profile?.ShowGpu??settings.OverlayShowGpu)
@@ -33,9 +43,9 @@ internal sealed class OverlayText
         if(profile?.ShowVram??settings.OverlayShowVram)
             lines.Add("VRAM "+Gb(sample.GpuVramUsedGb)+(double.IsFinite(sample.GpuVramTotalGb)?" / "+Gb(sample.GpuVramTotalGb):""));
         if(profile?.ShowRam??settings.OverlayShowRam)lines.Add("RAM "+Gb(sample.RamUsedGb));
-        if(double.IsFinite(sample.NetDownKBps)||double.IsFinite(sample.NetUpKBps))
+        if(settings.OverlayShowNetwork&&(double.IsFinite(sample.NetDownKBps)||double.IsFinite(sample.NetUpKBps)))
             lines.Add("NET DOWN "+Rate(sample.NetDownKBps)+"  UP "+Rate(sample.NetUpKBps));
-        return string.Join("\n",lines);
+        return string.Join(settings.OverlayLayout == "Compact" ? "  |  " : "\n",lines);
     }
     private static string Number(double v,string format)=>v.ToString(format,CultureInfo.InvariantCulture);
     private static string Percent(double v)=>double.IsFinite(v)?Number(v,"0")+"%":"--";
