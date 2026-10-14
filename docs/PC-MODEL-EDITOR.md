@@ -1,6 +1,6 @@
 # Configurable PC model preview
 
-This work is on `experimental/pc-model-editor`. The existing 1.1.10 installer is preserved; the model is being shown to the owner before packaging an application update.
+The preview work started on `experimental/pc-model-editor` and is included in Burmalk 1.1.11 on `experimental/1.1.11`, with animated fan blades and interactive component selection on the dashboard. The previous installers, including 1.1.10, are preserved. See `RELEASE-NOTES-1.1.11.md` and `VERIFICATION-1.1.11.md` for the packaged and installed update.
 
 The model is authored as WPF meshes, not a generated picture. The desktop uses a neutral tower with a removable or transparent side panel, front and top mesh, PSU shroud, motherboard, RAM, a horizontal or vertical graphics card, CPU cooling, and case fans. Desktop and laptop models remain separate. CPU cooling is selected manually because Windows cannot reliably identify an air cooler or an AIO.
 
