@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.1.10"
+  #define AppVersion "1.1.11"
 #endif
 #ifndef PublishDir
-  #define PublishDir "..\.build\publish-v1.1.10"
+  #define PublishDir "..\.build\publish-v1.1.11"
 #endif
 [Setup]
 AppId=Burmalk.Experimental.App

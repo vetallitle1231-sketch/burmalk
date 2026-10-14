@@ -24,8 +24,9 @@ namespace Burmalk.Models
         public bool PcModelWidgetIntroduced;
         public string PcModelChassis = "Auto";
         public string PcModelCooling = "Auto";
-        public PcModelOptions PcModel = new PcModelOptions();
-        public double PcWidgetYaw = 32, PcWidgetPitch = 15, PcWidgetDistance = 18;
+        public PcModelOptions PcModel = PcModelOptions.CompleteTower();
+        public bool PcModelAnimateFans = true;
+        public double PcWidgetYaw = 20, PcWidgetPitch = 12, PcWidgetDistance = 18;
         public string[] DashboardLayout = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes" };
         public string[] DashboardVisible = { "cpu", "gpu", "ram", "disk", "network", "game", "music", "system", "processes" };
         public Dictionary<string, DashboardPosition> DashboardPositions = new Dictionary<string, DashboardPosition>();

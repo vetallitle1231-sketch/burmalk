@@ -25,6 +25,7 @@ namespace Burmalk.Views
         private readonly TextBlock _rankHeaderText = ViewUi.Text("");
         private readonly Button _rankHeaderButton = new Button { ContentTemplate = null, Visibility = Visibility.Collapsed, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(0, 3, 0, 0) };
         private readonly PcView3D _pcModel = new PcView3D(true);
+        internal PcView3D PcModelWidget => _pcModel;
         private readonly Canvas _grid = new Canvas { Background = Brushes.Transparent, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
         private readonly ScrollViewer _workspace = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         private readonly Dictionary<string, Border> _cards = new Dictionary<string, Border>();

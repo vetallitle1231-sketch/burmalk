@@ -52,6 +52,36 @@ namespace Burmalk.Services
             {
                 if (Array.IndexOf(modelDashboard.CurrentOrder, "pc3d") > Array.IndexOf(modelDashboard.CurrentOrder, "cpu")) modelDashboard.MoveCard("pc3d", "cpu");
                 Check(modelDashboard.CurrentOrder.Contains("pc3d"), "Rotatable PC model is a movable dashboard widget");
+                var widget = modelDashboard.PcModelWidget; modelDashboard.UpdateLayout(); widget.Refresh();
+                bool reduced = App.Store.Settings.ReducedEffects, fansEnabled = App.Store.Settings.PcModelAnimateFans;
+                try
+                {
+                    App.Store.Settings.ReducedEffects = false; App.Store.Settings.PcModelAnimateFans = true; widget.ResetCamera();
+                    Check(widget.AnimatedFanCount >= 7, "Complete home PC contains animated cooling fans");
+                    var before = widget.RotorAngles; widget.AdvanceMotionForVerification(.1);
+                    Check(!before.SequenceEqual(widget.RotorAngles), "Home PC fan blades change angle over time");
+                    Capture(Application.Current.MainWindow, "Dashboard-fans-moving");
+                    Check(widget.TryPickPart("gpu") && widget.SelectedPart == "gpu", "A real ray hit on the home model selects the GPU");
+                    widget.AdvanceMotionForVerification(.1); widget.AdvanceMotionForVerification(.1);
+                    Check(widget.SelectionCardVisible && widget.FocusAmount > 0, "Home component click shows its card and moves the camera smoothly");
+                    Capture(Application.Current.MainWindow, "Dashboard-GPU-click-effect");
+                    widget.ResetCamera(); for (int i = 0; i < 12; i++) widget.AdvanceMotionForVerification(.1);
+                    Check(widget.TryPickPart("cpu") && widget.SelectedPart == "cpu", "Clicking the CPU cooler on the home model selects CPU information");
+                    widget.AdvanceMotionForVerification(.1); Capture(Application.Current.MainWindow, "Dashboard-CPU-click-effect");
+                    Check(!widget.AnimationRunning, "Inactive verification keeps its continuous animation stopped even with effects enabled");
+                    foreach (string component in new[] { "ram", "board", "disks" })
+                    {
+                        widget.ResetCamera(); for (int i = 0; i < 12; i++) widget.AdvanceMotionForVerification(.1);
+                        Check(widget.TryPickPart(component) && widget.SelectedPart == component && widget.SelectionCardVisible, "Home model can select " + component + " directly through its geometry");
+                    }
+                    App.Store.Settings.PcModelAnimateFans = false; var paused = widget.RotorAngles; widget.AdvanceMotionForVerification(.1);
+                    Check(paused.SequenceEqual(widget.RotorAngles), "Fan animation preference pauses every rotor");
+                    App.Store.Settings.PcModelAnimateFans = true; App.Store.Settings.ReducedEffects = true; widget.Refresh();
+                    var quiet = widget.RotorAngles; widget.AdvanceMotionForVerification(.1);
+                    Check(quiet.SequenceEqual(widget.RotorAngles) && !widget.AnimationRunning, "Reduced effects stops animation and its timer");
+                    Check(!widget.AnimationRunning, "Hidden inactive verification never runs continuous model animation over the game");
+                }
+                finally { App.Store.Settings.ReducedEffects = reduced; App.Store.Settings.PcModelAnimateFans = fansEnabled; widget.ResetCamera(); widget.Refresh(); }
             }
             if (page == "Dashboard" && view is Burmalk.Views.DashboardView rankedDashboard && App.Store.Performance != null && PassportService.CurrentRank().Confirmed)
             {
@@ -92,6 +122,7 @@ namespace Burmalk.Services
                     {
                         var model = new PcModelOptions { GpuFans = fans, FrontFans = 3, RearFans = 1, TopFans = 0, BottomFans = 2, AirCoolerFans = 2, RadiatorFans = 3, RamModules = 4 };
                         var air = PcModelScene.Desktop(model, false); var water = PcModelScene.Desktop(model, true);
+                        Check(air.Rotors.Count == air.FanCounts.Values.Sum() && water.Rotors.Count == water.FanCounts.Values.Sum(), "Each configured fan animates only its own rotor");
                         int Count(PcModelScene scene, string role) => scene.FanCounts.TryGetValue(role, out int value) ? value : 0;
                         Check(Count(air, "gpu") == fans && Count(air, "cpu") == 2 && Count(air, "front") == 3 && Count(air, "bottom") == 2, "Configured air model contains the selected fans: GPU " + fans);
                         Check(Count(water, "radiator") == 3 && Count(water, "cpu") == 0 && Count(water, "top") == 0, "Water model replaces the CPU tower and top fans with its radiator");
@@ -105,6 +136,13 @@ namespace Burmalk.Services
                     Check(pc3d.ModelVariant == "Desktop/Air" && settings.PcModel.Signature == PcModelOptions.CompleteTower().Signature, "Complete build combines all selected components with the user's air cooler");
                     var complete = PcModelScene.Desktop(settings.PcModel, false);
                     Check(new[] { "case", "board", "cpu", "gpu", "ram", "disks", "cooling" }.All(part => complete.Parts.Values.Contains(part)), "Complete tower contains every component in the same scene");
+                    var mountedRotor = complete.Rotors.First(rotor => rotor.Role == "gpu");
+                    var blade = complete.Parts.Keys.First(geometry => geometry.Transform is System.Windows.Media.Media3D.Transform3DGroup transforms && transforms.Children.OfType<System.Windows.Media.Media3D.RotateTransform3D>().Any(t => t.Rotation == mountedRotor.Rotation));
+                    var mesh = (System.Windows.Media.Media3D.MeshGeometry3D)blade.Geometry;
+                    var beforeVertex = blade.Transform.Transform(mesh.Positions[0]);
+                    var frameModel = complete.Parts.First(pair => pair.Value == "case").Key; var frameTransform = frameModel.Transform.Value;
+                    mountedRotor.Advance(.1);
+                    Check((blade.Transform.Transform(mesh.Positions[0]) - beforeVertex).Length > .001 && frameModel.Transform.Value.Equals(frameTransform), "Vertical GPU mount keeps its rotor animation while the case stays stationary");
                     var completeWidget = new Burmalk.Views.PcView3D(true); completeWidget.Refresh();
                     Check(completeWidget.AppearanceSignature == pc3d.AppearanceSignature, "Complete tower is shared with the dashboard widget");
                     var completeRead = new DataStore(App.Store.RootDir); completeRead.Load();
@@ -240,10 +278,12 @@ namespace Burmalk.Services
             var read=new DataStore(store.RootDir);read.Load();
             store.Settings.PcModelChassis = "Laptop"; store.Settings.PcModelCooling = "Aio"; store.Settings.PcWidgetYaw = 76; store.Settings.PcWidgetPitch = 28; store.Settings.PcWidgetDistance = 17; store.Save();
             store.Settings.PcModel = new PcModelOptions { CaseColor = "Graphite", SidePanel = "Glass", BoardSize = "ITX", Lighting = "Purple", GpuFans = 3, VerticalGpu = true, RamModules = 4, FrontFans = 3, RearFans = 0, TopFans = 1, BottomFans = 2, AirCoolerFans = 2, RadiatorFans = 3, Drives = 4 }; store.Save();
+            store.Settings.PcModelAnimateFans = false; store.Save();
             store.SaveDiskMeasurement(new DiskMeasurement { Root = "X:\\", PhysicalModel = "fixture disk", VolumeBytes = 100L * 1024 * 1024 * 1024, ReadMBps = 250, WriteMBps = 120, Bytes = 128L * 1024 * 1024, TestedUtc = DateTime.UtcNow });
             var modelRead = new DataStore(store.RootDir); modelRead.Load();
             Check(modelRead.Settings.PcModelChassis == "Laptop" && modelRead.Settings.PcModelCooling == "Aio" && modelRead.Settings.PcWidgetYaw == 76 && modelRead.Settings.PcWidgetPitch == 28 && modelRead.Settings.PcWidgetDistance == 17, "3D model type and widget camera survive restart");
             Check(modelRead.Settings.PcModel.Signature == store.Settings.PcModel.Signature, "All model editor options survive restart together with widget camera");
+            Check(!modelRead.Settings.PcModelAnimateFans, "Fan animation preference survives a settings reload");
             Check(modelRead.DiskMeasurements.Count == 1 && modelRead.DiskMeasurements[0].PhysicalModel == "fixture disk" && modelRead.DiskMeasurements[0].ReadMBps == 250, "Saved disk measurements preserve drive identity and measured rates");
             var rankFixture = new PerformanceRecord { MethodVersion = RankMethod.Version, TestedUtc = DateTime.UtcNow, CpuModel = "fixture CPU", GpuModel = "fixture GPU", RamGb = 32,
                 CpuMillionOps = RankMethod.ReferenceCpu, GpuFps = RankMethod.ReferenceGpu, RamMegabytesPerSecond = RankMethod.ReferenceRam, CpuCompleted = true, GpuCompleted = true, RamCompleted = true, MemoryPassed = true,

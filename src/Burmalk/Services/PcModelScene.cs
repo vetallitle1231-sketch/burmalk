@@ -11,6 +11,7 @@ internal sealed class PcModelScene
     public readonly Model3DGroup Root = new();
     public readonly Dictionary<GeometryModel3D, string> Parts = new();
     public readonly Dictionary<string, int> FanCounts = new();
+    public readonly List<PcModelRotor> Rotors = new();
     private readonly Color _shell, _metal = Color.FromRgb(138, 145, 155), _dark = Color.FromRgb(30, 35, 42), _pcb = Color.FromRgb(38, 42, 47), _led;
     private readonly PcModelOptions _o;
     private PcModelScene(PcModelOptions options)
@@ -114,18 +115,18 @@ internal sealed class PcModelScene
     private static double Spaced(int index, int count, double distance) => (index - (count - 1) / 2d) * distance;
     private void AirCooler()
     {
-        for (int i = 0; i < 20; i++) Box("cooling", -.69, .51 + i * .068, -.55, 1.15, .028, .98, _metal);
-        for (int i = 0; i < 4; i++) Pipe("cooling", new Point3D(-1.01 + i * .21, .42, -.48), new Point3D(-1.01 + i * .21, 1.89, -.48), .034, Color.FromRgb(145, 125, 106));
-        Fan("cpu", new Point3D(-.69, 1.16, .015), new Vector3D(0, 0, 1), .56, "cooling");
-        if (_o.AirCoolerFans == 2) Fan("cpu", new Point3D(-.69, 1.16, -1.04), new Vector3D(0, 0, -1), .56, "cooling");
+        for (int i = 0; i < 20; i++) Box("cpu", -.69, .51 + i * .068, -.55, 1.15, .028, .98, _metal);
+        for (int i = 0; i < 4; i++) Pipe("cpu", new Point3D(-1.01 + i * .21, .42, -.48), new Point3D(-1.01 + i * .21, 1.89, -.48), .034, Color.FromRgb(145, 125, 106));
+        Fan("cpu", new Point3D(-.69, 1.16, .015), new Vector3D(0, 0, 1), .56, "cpu");
+        if (_o.AirCoolerFans == 2) Fan("cpu", new Point3D(-.69, 1.16, -1.04), new Vector3D(0, 0, -1), .56, "cpu");
     }
     private void WaterCooler()
     {
-        Pipe("cooling", new Point3D(-.68, 1.22, -1.05), new Point3D(-.68, 1.22, -.62), .43, _dark);
-        Pipe("cooling", new Point3D(-.68, 1.22, -.62), new Point3D(-.68, 1.22, -.60), .35, _metal);
-        Add("cooling", Annulus(new Point3D(-.68, 1.22, -.588), new Vector3D(0, 0, 1), .335, .03), _o.Lighting == "Off" ? _shell : _led, _o.Lighting != "Off");
+        Pipe("cpu", new Point3D(-.68, 1.22, -1.05), new Point3D(-.68, 1.22, -.62), .43, _dark);
+        Pipe("cpu", new Point3D(-.68, 1.22, -.62), new Point3D(-.68, 1.22, -.60), .35, _metal);
+        Add("cpu", Annulus(new Point3D(-.68, 1.22, -.588), new Vector3D(0, 0, 1), .335, .03), _o.Lighting == "Off" ? _shell : _led, _o.Lighting != "Off");
         // Neutral small pump grille, reminiscent of the reference's circular block.
-        for (int i = -4; i <= 4; i++) Box("cooling", -.68 + i * .058, 1.22, -.58, .018, .30 + .18 * (1 - Math.Abs(i) / 4d), .012, _dark);
+        for (int i = -4; i <= 4; i++) Box("cpu", -.68 + i * .058, 1.22, -.58, .018, .30 + .18 * (1 - Math.Abs(i) / 4d), .012, _dark);
         double width = _o.RadiatorFans * 1.23 + .10;
         Box("cooling", 0, 2.69, 0, width, .30, 1.39, _dark);
         Add("cooling", Grille(new Point3D(0, 2.867, 0), new Vector3D(1, 0, 0), new Vector3D(0, 0, 1), width - .07, 1.3, .065, .015), _metal);
@@ -200,7 +201,13 @@ internal sealed class PcModelScene
         if (_o.VerticalGpu)
         {
             rotation = new RotateTransform3D(new AxisAngleRotation3D(new Vector3D(1, 0, 0), -90), x, -.79, -.06);
-            rotation.Freeze(); for (int i = first; i < Root.Children.Count; i++) Root.Children[i].Transform = rotation;
+            rotation.Freeze();
+            for (int i = first; i < Root.Children.Count; i++)
+            {
+                var transforms = new Transform3DGroup();
+                transforms.Children.Add(Root.Children[i].Transform); transforms.Children.Add(rotation);
+                Root.Children[i].Transform = transforms;
+            }
         }
         var cableStart = rotation.Transform(plug + new Vector3D(0, 0, .12));
         for (int i = 0; i < 6; i++)
@@ -241,7 +248,10 @@ internal sealed class PcModelScene
                 if (step > 0) foreach (int k in new[] { 0, 3, 1, 0, 2, 3 }) blades.TriangleIndices.Add(start + (step - 1) * 2 + k);
             }
         }
-        Add(part, blades, Color.FromRgb(89, 95, 104));
+        var rotor = Add(part, blades, Color.FromRgb(89, 95, 104));
+        var angle = new AxisAngleRotation3D(normal, 0);
+        rotor.Transform = new RotateTransform3D(angle, center.X, center.Y, center.Z);
+        Rotors.Add(new PcModelRotor(role, angle));
         if (integrated) Add(part, Annulus(center + normal * .105, normal, radius * .13, .016), Color.FromRgb(137, 146, 159));
         else foreach (double a in new[] { -1d, 1d }) foreach (double b in new[] { -1d, 1d })
                 Pipe(part, center + u*a*outer + v*b*outer + normal*.077, center + u*a*outer + v*b*outer + normal*.092, .025, _dark);
