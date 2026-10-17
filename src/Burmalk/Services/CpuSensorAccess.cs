@@ -46,6 +46,7 @@ namespace Burmalk.Services
         public static bool RestartElevated()
         {
             string profile = App.IsExperimentalProfile ? " --profile-experimental" : "";
+            if(Array.IndexOf(Environment.GetCommandLineArgs(),"--start-minimized")>=0)profile+=" --start-minimized";
             var child=Process.Start(new ProcessStartInfo(Environment.ProcessPath,"--wait-for-process "+Environment.ProcessId + profile){UseShellExecute=true,Verb="runas"});
             if(child==null)return false;
             Application.Current.Shutdown();return true;

@@ -71,6 +71,17 @@ namespace Burmalk
                 PcModelPreview.ExportObj(System.IO.Path.Combine(Verification.DirectoryPath, "Burmalk-GPU-Detail.obj"), new Models.PcModelOptions { GpuFans = 3, VerticalGpu = true }, false, true);
                 Shutdown(); return;
             }
+            int overlayPreviewArg=Array.IndexOf(args,"--overlay-preview-dir");
+            if(overlayPreviewArg>=0&&overlayPreviewArg+1<args.Length)
+            {
+                Verification.DirectoryPath=System.IO.Path.GetFullPath(args[overlayPreviewArg+1]);
+                System.IO.Directory.CreateDirectory(Verification.DirectoryPath);
+                Store=new DataStore(System.IO.Path.Combine(Verification.DirectoryPath,"app-data"));
+                Store.Load();Appearance.Apply(Store.Settings);
+                System.Windows.Media.RenderOptions.ProcessRenderMode=System.Windows.Interop.RenderMode.SoftwareOnly;
+                OverlayPreview.Save(Verification.DirectoryPath);
+                Shutdown();return;
+            }
             int overlayTestArg=Array.IndexOf(args,"--overlay-test-dir");
             if(overlayTestArg>=0&&overlayTestArg+1<args.Length)
             {
@@ -135,6 +146,11 @@ namespace Burmalk
             Tuning = new HardwareTuningService();
 
             var window = new MainWindow();
+            if(args.Contains("--start-minimized"))
+            {
+                window.ShowActivated=false;
+                window.WindowState=WindowState.Minimized;
+            }
             if (Verification.DirectoryPath != null)
             {
                 window.ShowActivated = false;

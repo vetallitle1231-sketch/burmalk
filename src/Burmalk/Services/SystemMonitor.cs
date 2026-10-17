@@ -131,6 +131,8 @@ namespace Burmalk.Services
             catch (Exception ex) { ErrorLog.Write("CPU sample: " + ex.Message); }
             var cpuSensors=CpuSensors.Sample();
             s.CpuTempC=cpuSensors.Temperature;s.CpuGhz=cpuSensors.Ghz;
+            s.CpuTemperatureSource=CpuSensors.TemperatureSource;
+            s.CpuFrequencySource=CpuSensors.FrequencySource;
 
             // RAM usage
             try
@@ -140,8 +142,12 @@ namespace Burmalk.Services
                 {
                     double availMb = _freeMem.NextValue();
                     double totalMb = totalGb * 1024.0;
-                    s.RamUsedGb = Math.Max(0, (totalMb - availMb) / 1024.0);
-                    s.RamPercent = s.RamUsedGb / totalGb * 100;
+                    if(double.IsFinite(availMb)&&availMb>=0&&availMb<=totalMb)
+                    {
+                        s.RamTotalGb=totalGb;
+                        s.RamUsedGb=(totalMb-availMb)/1024.0;
+                        s.RamPercent=s.RamUsedGb/totalGb*100;
+                    }
                 }
             }
             catch (Exception ex) { ErrorLog.Write("RAM sample: " + ex.Message); }
@@ -160,6 +166,7 @@ namespace Burmalk.Services
                     s.GpuClockMhz = g.ClockMhz;
                     s.GpuMemClockMhz = g.MemClockMhz;
                     s.GpuPowerW = g.PowerW;
+                    s.GpuTimestampUtc=g.TimestampUtc;s.GpuName=g.Name;
                 }
                 else
                 {
@@ -171,6 +178,7 @@ namespace Burmalk.Services
                     s.GpuClockMhz = g.ClockMhz;
                     s.GpuMemClockMhz = g.MemClockMhz;
                     s.GpuPowerW = g.PowerW;
+                    s.GpuTimestampUtc=g.TimestampUtc;s.GpuName=g.Name;
                 }
             }
 

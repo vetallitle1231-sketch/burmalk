@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="../../src/Burmalk/Services/RtssOverlay.cs" Link="RtssOverlay.cs" />
     <Compile Include="../../src/Burmalk/Services/OverlayText.cs" Link="OverlayText.cs" />
+    <Compile Include="../../src/Burmalk/Services/FpsTimeline.cs" Link="FpsTimeline.cs" />
     <Compile Include="../../src/Burmalk/Models/AppData.cs" Link="AppData.cs" />
     <Compile Include="../../src/Burmalk/Models/PcModelOptions.cs" Link="PcModelOptions.cs" />
     <Compile Include="../../src/Burmalk/Models/GameModels.cs" Link="GameModels.cs" />

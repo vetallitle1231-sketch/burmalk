@@ -70,3 +70,8 @@ if (args.Contains("--probe"))
     foreach (var setting in settings) Console.WriteLine(setting.Id + " | " + setting.Name + " | current=" + setting.Read() + " | range=" + setting.Minimum + ".." + setting.Maximum + " " + setting.Unit);
     Check(true, "Probe calls getters only; no actual clock, power, fan, or plan writes");
 }
+Check(CpuClockNames.IsCore("CPU Core #1")&&CpuClockNames.IsCore("Core #8")&&CpuClockNames.IsCore("Cores (Average)"),"Intel and AMD core clocks are recognized");
+Check(!CpuClockNames.IsCore("Bus Speed")&&!CpuClockNames.IsCore("CPU Core Max")&&!CpuClockNames.IsCore("CPU SoC")&&!CpuClockNames.IsCore("Memory")&&!CpuClockNames.IsCore("Ring"),"Bus, maximum, SoC, memory and ring clocks cannot lower the average core frequency");
+Check(double.IsNaN(GpuSampler.ParseLine("RTX 5070, 617.42, 50, 140, 2500, 17000, 180, 4000, 12288").Percent),"Impossible GPU utilization is unavailable rather than clamped");
+Check(double.IsNaN(GpuSampler.ParseLine("RTX 5070, 617.42, N/A, N/A, N/A, N/A, N/A, N/A, N/A").ClockMhz),"Unsupported driver metrics remain unavailable");
+Check(double.IsNaN(GpuSampler.ParseLine("RTX 5070, 617.42, 50, 70, 2500, 17000, 180, 13000, 12288").VramUsedGb),"Used VRAM cannot exceed the reported total");

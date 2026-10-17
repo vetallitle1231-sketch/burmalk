@@ -9,9 +9,10 @@ namespace Burmalk.Services;
 // RTSS SDK v2.14+ shared-memory protocol. Only our own secondary OSD slot is changed.
 internal static class RtssOverlay
 {
-    internal readonly record struct FrameStats(double Fps,double FrameMs, uint Stamp = 0)
+    internal readonly record struct FrameStats(double Fps,double FrameMs, uint Stamp = 0, uint Time0 = 0, uint Frames = 0)
     {
         public bool Available=>double.IsFinite(Fps)&&Fps>0;
+        public uint ElapsedMs => unchecked(Stamp - Time0);
     }
     internal const string Owner="Burmalk";
     public static string Status {get;private set;}="RTSS is not connected.";
@@ -44,18 +45,20 @@ internal static class RtssOverlay
     }
     internal static FrameStats ReadFrames(MemoryMappedViewAccessor v,int pid)
     {
-        if(v.Capacity<40||v.ReadUInt32(0)!=0x52545353||v.ReadUInt32(4)<0x20000)return default;
+        if(pid<=0||v.Capacity<40||v.ReadUInt32(0)!=0x52545353||v.ReadUInt32(4)<0x20000)return default;
         long size=v.ReadUInt32(8),offset=v.ReadUInt32(12),count=v.ReadUInt32(16);
         if(size<284||count>4096||offset<40||offset+count*size>v.Capacity)return default;
         for(long i=0;i<count;i++)
         {
             long at=offset+i*size;
             if(v.ReadUInt32(at)!=(uint)pid)continue;
-            uint time0=v.ReadUInt32(at+268),time1=v.ReadUInt32(at+272),frames=v.ReadUInt32(at+276),microseconds=v.ReadUInt32(at+280);
-            double fps=time0>0&&time1>time0&&frames>0?1000d*frames/(time1-time0):double.NaN;
+            uint time1=v.ReadUInt32(at+272),time0=v.ReadUInt32(at+268),frames=v.ReadUInt32(at+276),microseconds=v.ReadUInt32(at+280);
+            if(time1!=v.ReadUInt32(at+272)||time0!=v.ReadUInt32(at+268)||frames!=v.ReadUInt32(at+276))return default;
+            uint elapsed=unchecked(time1-time0);
+            double fps=time0>0&&time1>0&&elapsed>0&&elapsed<=60000&&frames>0?1000d*frames/elapsed:double.NaN;
             double frameMs=microseconds>0?microseconds/1000d:double.NaN;
-            if(!double.IsFinite(fps)&&double.IsFinite(frameMs))fps=1000d/frameMs;
-            return new FrameStats(double.IsFinite(fps)&&fps>0&&fps<10000?fps:double.NaN,double.IsFinite(frameMs)&&frameMs>0&&frameMs<1000?frameMs:double.NaN, time1);
+            // Last-frame time and interval FPS are different measurements. No reciprocal fallback.
+            return new FrameStats(double.IsFinite(fps)&&fps>0&&fps<100000?fps:double.NaN,double.IsFinite(frameMs)&&frameMs>0&&frameMs<=60000?frameMs:double.NaN,time1,time0,frames);
         }
         return default;
     }

@@ -53,6 +53,7 @@ namespace Burmalk.Models
         public bool OverlayShowFrameTime = true;
         public bool OverlayShowNetwork = true;
         public string OverlayLayout = "Lines";
+        public bool OverlaySensorColors = true;
         public string OverlayColor = "FFFFFF";
         public int OverlayTextScale = 100;
 

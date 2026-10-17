@@ -1,13 +1,22 @@
 using Burmalk.Services;
-void Check(bool yes, string text) { if (!yes) throw new Exception(text); Console.WriteLine("PASS " + text); }
-var t = new FpsTimeline(); var now = DateTime.UtcNow;
-Check(!t.Available(now), "No invented FPS before frames arrive");
-Check(t.AcceptRtss(120, 42, now) && t.Available(now), "RTSS frames immediately populate the game widget");
-Check(!t.AcceptRtss(120, 42, now.AddSeconds(1)) && t.Count == 1, "Unchanged shared-memory frame is not counted twice");
-Check(!t.Available(now.AddSeconds(4)), "Stale FPS disappears after three seconds");
-Check(t.Accept(90, "PresentMon", now.AddSeconds(4)), "PresentMon can recover when RTSS stops updating");
-Check(t.AcceptRtss(150, 43, now.AddSeconds(5)), "RTSS automatically resumes");
-Check(!t.Accept(200, "PresentMon", now.AddSeconds(6)), "Late fallback result cannot overwrite fresh RTSS");
-Check(t.Count == 3 && t.Average == 120 && t.Minimum == 90 && t.Maximum == 150, "Average and extrema only use accepted samples");
-Check(!t.Accept(double.NaN, "RTSS", now.AddSeconds(7)), "Invalid frame rate is rejected");
-Check(!new FpsTimeline().Available(now), "A new game starts with a clean frame history");
+void Check(bool yes,string text){if(!yes)throw new Exception(text);Console.WriteLine("PASS "+text);}
+var t=new FpsTimeline();var now=DateTime.UtcNow;
+Check(!t.Available(now),"No FPS before real measurements arrive");
+Check(!t.AcceptRtss(1000,2000,100,now)&&!t.Available(now),"A frozen mapping cannot establish live FPS on first read");
+Check(t.WaitingForRtss(now.AddSeconds(1))&&!t.WaitingForRtss(now.AddSeconds(4)),"Warmup prevents an unnecessary ETW capture but cannot wait forever");
+Check(!t.AcceptRtss(1000,2000,100,now.AddSeconds(1)),"The same initial mapping is still not live");
+Check(t.AcceptRtss(2000,3000,120,now.AddSeconds(2))&&t.Current==120,"An advancing producer establishes live FPS");
+Check(!t.AcceptRtss(2000,3000,120,now.AddSeconds(3))&&t.Count==1,"Repeated reads do not count frames twice");
+Check(t.AcceptRtss(3000,6000,180,now.AddSeconds(5))&&t.Current==60&&t.Average==75,"AVG is 300 frames / 4 seconds, not mean of 120 and 60 FPS");
+Check(!t.AcceptRtss(5000,6500,90,now.AddSeconds(6))&&t.Count==2&&t.Average==75,"Overlapping intervals cannot inflate the average");
+Check(!t.Available(now.AddSeconds(9)),"Stale FPS disappears after three seconds without a new interval");
+Check(t.Accept(90,"PresentMon",now.AddSeconds(9))&&t.Average==90&&t.Count==1,"Fallback starts its own average instead of mixing methods");
+Check(t.AcceptRtss(6500,7500,150,now.AddSeconds(10))&&t.Average==150,"RTSS resumes with a counted-frame average");
+Check(!t.Accept(200,"PresentMon",now.AddSeconds(11)),"Fallback cannot overwrite fresh RTSS");
+Check(!t.Accept(double.NaN,"PresentMon",now.AddSeconds(12)),"Invalid FPS is rejected");
+var wrapped=new FpsTimeline();
+Check(!wrapped.AcceptRtss(uint.MaxValue-1295,uint.MaxValue-295,120,now),"Wrapped clock is primed");
+Check(wrapped.AcceptRtss(uint.MaxValue-295,704,120,now.AddSeconds(1))&&wrapped.Current==120,"DWORD clock rollover preserves measured elapsed time");
+Check(!wrapped.AcceptRtss(400,500,10,now.AddSeconds(2))&&!wrapped.Available(now.AddSeconds(2)),"Clock regression invalidates the old measurement history");
+Check(!new FpsTimeline().AcceptRtss(10,10,12,now)&&!new FpsTimeline().AcceptRtss(10,20,0,now),"Zero duration and missing frame counts are unavailable");
+Check(!t.Available(now.AddSeconds(-1)),"A wall-clock regression cannot mark future data as fresh");

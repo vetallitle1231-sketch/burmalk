@@ -58,8 +58,9 @@ namespace Burmalk.Services
                     if(pid==0)return;
                     if(_current==null){Array.Clear(Sums);Array.Clear(Counts);_fps = new FpsTimeline(); _current=new GameCurrent{Active=true,GameName=name,Executable=exe,Pid=pid,StartedUtc=DateTime.UtcNow};}
                     var rtss = RtssOverlay.ReadFrames(pid);
-                    if (rtss.Available && _fps.AcceptRtss(rtss.Fps, rtss.Stamp, DateTime.UtcNow)) ApplyFps();
-                    if (!_fps.Available(DateTime.UtcNow)) { _current.FpsAvailable = false; _ = SampleFpsAsync(pid); }
+                    if (rtss.Available) _fps.AcceptRtss(rtss.Time0, rtss.Stamp, rtss.Frames, DateTime.UtcNow);
+                    ApplyFps();
+                    if (!_current.FpsAvailable && !_fps.WaitingForRtss(DateTime.UtcNow)) _ = SampleFpsAsync(pid);
                     var s=App.Monitor.LastSample;
                     _current.DurationSeconds=(DateTime.UtcNow-_current.StartedUtc).TotalSeconds;
                     _current.CpuPercent=s.CpuPercent;_current.CpuTempC=s.CpuTempC;_current.GpuPercent=s.GpuPercent;_current.GpuTempC=s.GpuTempC;_current.GpuVramUsedGb=s.GpuVramUsedGb;_current.RamUsedGb=s.RamUsedGb;

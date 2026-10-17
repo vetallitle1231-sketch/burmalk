@@ -8,4 +8,5 @@
     <Compile Include="../../src/Burmalk/Services/GpuSampler.cs" Link="GpuSampler.cs" />
     <Compile Include="../../src/Burmalk/Services/ErrorLog.cs" Link="ErrorLog.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../../src/Burmalk/Services/CpuClockNames.cs" Link="CpuClockNames.cs" /></ItemGroup>
 </Project>

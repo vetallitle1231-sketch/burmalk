@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Documents;
 using Burmalk.Models;
 using Burmalk.Services;
 
@@ -14,6 +15,7 @@ public sealed class OverlayCustomizationPanel : StackPanel
     private readonly ComboBox _layout;
     private readonly Slider _scale;
     private bool _ready;
+    internal FrameworkElement PreviewVisual => (FrameworkElement)_preview.Parent;
     public OverlayCustomizationPanel()
     {
         var settings = App.Store.Settings;
@@ -34,8 +36,10 @@ public sealed class OverlayCustomizationPanel : StackPanel
             check.Click += (_, _) => { set(check.IsChecked == true); Commit(); }; metrics.Children.Add(check);
         }
         Children.Add(ViewUi.Text("Вид оверлея"));
-        _layout = new ComboBox { ItemsSource = new[] { "Столбик", "Компактная строка" }, SelectedIndex = settings.OverlayLayout == "Compact" ? 1 : 0, Width = 250, HorizontalAlignment = HorizontalAlignment.Left };
+        _layout = new ComboBox { ItemsSource = new[] { "Панель датчиков", "Компактная строка" }, SelectedIndex = settings.OverlayLayout == "Compact" ? 1 : 0, Width = 250, HorizontalAlignment = HorizontalAlignment.Left };
         _layout.SelectionChanged += (_, _) => { settings.OverlayLayout = _layout.SelectedIndex == 1 ? "Compact" : "Lines"; Commit(); }; Children.Add(_layout);
+        var sensorColors=new CheckBox{Content="Цветные подписи FPS / GPU / CPU / RAM",IsChecked=settings.OverlaySensorColors,Margin=new Thickness(0,10,0,6)};
+        sensorColors.Click+=(_,_)=>{settings.OverlaySensorColors=sensorColors.IsChecked==true;Commit();};Children.Add(sensorColors);
         Children.Add(_scaleLabel);
         _scale = new Slider { Minimum = 60, Maximum = 180, TickFrequency = 10, IsSnapToTickEnabled = true, Value = settings.OverlayTextScale, Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
         _scale.ValueChanged += (_, _) => { settings.OverlayTextScale = (int)_scale.Value; Commit(); }; Children.Add(_scale);
@@ -58,6 +62,8 @@ public sealed class OverlayCustomizationPanel : StackPanel
         _preview.FontFamily = new FontFamily("Consolas"); _preview.TextWrapping = TextWrapping.Wrap;
         Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(9, 14, 26)), CornerRadius = new CornerRadius(10), Padding = new Thickness(16), Child = _preview });
         Children.Add(ViewUi.Text("Профиль конкретной игры может отдельно менять CPU / GPU / RAM / VRAM. FPS и оформление общие для всех игр."));
+        Children.Add(ViewUi.Text("FPS — измеренные RTSS кадры активной игры. AVG = сумма кадров / время наблюдённых интервалов в этом сеансе оверлея; одинаковое измерение учитывается один раз. Перед первым показом ожидается обновление счётчика. Застывшие FPS пропадают через 3 секунды."));
+        Children.Add(ViewUi.Text("FRAME AVG — среднее время кадра в текущем интервале; LAST — длительность последнего кадра RTSS. CPU / GPU / RAM и сетевой трафик относятся ко всему ПК. CLK(avg) — средняя частота ядер, CLK(OS) — показание Windows, которое может не отражать boost. PKG / TCTL / TDIE / COREMAX подписывают выбранный температурный датчик CPU. MEM — сообщённая драйвером частота памяти GPU, без умножения DDR. GiB / KiB — двоичные единицы. Недоступные и устаревшие данные: --. FPS обновляется не реже раза в секунду, GPU опрашивается примерно раз в две секунды."));
         Children.Add(_status); _ready = true; UpdatePreview();
     }
     private void Commit()
@@ -71,8 +77,21 @@ public sealed class OverlayCustomizationPanel : StackPanel
         var s = App.Store.Settings; _scaleLabel.Text = "Размер текста: " + s.OverlayTextScale + "%";
         _preview.FontSize = 14 * s.OverlayTextScale / 100d;
         _preview.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#" + s.OverlayColor));
-        _preview.Text = new OverlayText().BuildPlain(s, null, new GameCurrent { Pid = 1 },
-            new Sample { CpuPercent = 35, CpuTempC = 58, CpuGhz = 4.2, GpuPercent = 92, GpuTempC = 67, GpuClockMhz = 1900, GpuPowerW = 160, GpuVramUsedGb = 4, GpuVramTotalGb = 8, RamUsedGb = 12, NetDownKBps = 32, NetUpKBps = 8 },
-            new RtssOverlay.FrameStats(144, 6.9), DateTime.UtcNow);
+        var now=DateTime.UtcNow;var display=new OverlayText();var game=new GameCurrent{Pid=1};
+        display.ObserveFrames(game,new RtssOverlay.FrameStats(144,6.9,2000,1000,144),now.AddSeconds(-1));
+        string text=display.BuildPlain(s,null,game,
+            new Sample{TimestampUtc=now.Ticks,GpuTimestampUtc=now.Ticks,GpuName="NVIDIA GeForce · пример",CpuTemperatureSource="CPU Package",CpuPercent=35,CpuTempC=58,CpuGhz=4.2,GpuPercent=92,GpuTempC=67,GpuClockMhz=1900,GpuMemClockMhz=7000,GpuPowerW=160,GpuVramUsedGb=4,GpuVramTotalGb=8,RamUsedGb=12,RamTotalGb=31.92,NetDownKBps=32,NetUpKBps=8},
+            new RtssOverlay.FrameStats(144,6.9,3000,2000,144),now);
+        _preview.Inlines.Clear();
+        var parts=text.Split(s.OverlayLayout=="Compact"?"  |  ":"\n");
+        foreach(string part in parts)
+        {
+            if(_preview.Inlines.Count>0)_preview.Inlines.Add(new Run(s.OverlayLayout=="Compact"?"  |  ":"\n"));
+            if(part.StartsWith("BURMALK")){_preview.Inlines.Add(new Run(part){FontSize=_preview.FontSize*.75,Foreground=new SolidColorBrush(Color.FromRgb(148,163,184))});continue;}
+            string label=part.Length>=5?part[..5]:part;
+            string color=label.Trim() switch{"FPS" or "AVG"=>"FFD166","GPU"=>"A3E635","CPU"=>"67E8F9","RAM" or "VRAM"=>"C4B5FD",_=>"94A3B8"};
+            _preview.Inlines.Add(new Run(label){Foreground=s.OverlaySensorColors?new SolidColorBrush((Color)ColorConverter.ConvertFromString("#"+color)):_preview.Foreground});
+            _preview.Inlines.Add(new Run(part[label.Length..]));
+        }
     }
 }

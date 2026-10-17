@@ -6,6 +6,7 @@ namespace Burmalk.Services
     /// <summary>A single GPU sample (NaN = unavailable).</summary>
     public class GpuSample
     {
+        public long TimestampUtc;
         public double Percent = double.NaN;
         public double TempC = double.NaN;
         public double VramUsedGb = double.NaN;
@@ -23,7 +24,7 @@ namespace Burmalk.Services
                 Percent = Percent, TempC = TempC,
                 VramUsedGb = VramUsedGb, VramTotalGb = VramTotalGb,
                 ClockMhz = ClockMhz, MemClockMhz = MemClockMhz,
-                PowerW = PowerW, Name = Name, DriverVersion = DriverVersion
+                PowerW = PowerW, Name = Name, DriverVersion = DriverVersion, TimestampUtc=TimestampUtc
             };
         }
     }
@@ -92,7 +93,9 @@ namespace Burmalk.Services
                 }
                 if (string.IsNullOrWhiteSpace(line)) return Remember(s);
 
-                return Remember(ParseLine(line));
+                var parsed=ParseLine(line);
+                if(parsed.Name!="Unavailable")parsed.TimestampUtc=DateTime.UtcNow.Ticks;
+                return Remember(parsed);
             }
         }
 
@@ -116,6 +119,12 @@ namespace Burmalk.Services
                     double totalMiB = ParseDouble(parts[8]);
                     s.VramUsedGb = MiBToGb(usedMiB);
                     s.VramTotalGb = MiBToGb(totalMiB);
+                    if(s.Percent<0||s.Percent>100)s.Percent=double.NaN;
+                    if(s.ClockMhz<0)s.ClockMhz=double.NaN;
+                    if(s.MemClockMhz<0)s.MemClockMhz=double.NaN;
+                    if(s.PowerW<0)s.PowerW=double.NaN;
+                    if(s.VramTotalGb<=0)s.VramTotalGb=double.NaN;
+                    if(s.VramUsedGb<0||(double.IsFinite(s.VramTotalGb)&&s.VramUsedGb>s.VramTotalGb))s.VramUsedGb=double.NaN;
                 }
                 catch { /* keep prior value on partial parse */ }
 

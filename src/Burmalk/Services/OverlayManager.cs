@@ -86,11 +86,15 @@ namespace Burmalk.Services
                 DisplayStatus=!requested?"RTSS overlay is off.":!valid?"RTSS overlay armed · open a game or press F8 inside it.":!show?"RTSS overlay hidden while the game is not active.":"RTSS overlay follows the active game.";
                 if(!show){if(_rtssVisible)RtssOverlay.Clear();_rtssVisible=false;WriteDiagnostic(target,foreground,false,area);return;}
                 game??=new GameCurrent{GameName="Burmalk · manual overlay"};
+                int targetPid=OverlayTarget.Pid(target);
+                if(game.Pid!=targetPid)game=new GameCurrent{Pid=targetPid,GameName="Manual target"};
+                var frame=RtssOverlay.ReadFrames(targetPid);
+                // Read counters independently of the selected display refresh interval.
+                Text.ObserveFrames(game,frame,DateTime.UtcNow);
                 if(DateTime.UtcNow>=_nextContent||!_rtssVisible)
                 {
-                    var frame=RtssOverlay.ReadFrames(OverlayTarget.Pid(target));
-                    _rtssVisible=RtssOverlay.Publish(Text.Build(_store.Settings,profile,game,_monitor.LastSample,frame,DateTime.UtcNow),OverlayTarget.Pid(target));
-                    _nextContent=DateTime.UtcNow.AddMilliseconds(Math.Clamp(profile?.OverlayRefreshMs??_store.Settings.OverlayRefreshMs,300,10000));
+                    _rtssVisible=RtssOverlay.Publish(Text.Build(_store.Settings,profile,game,_monitor.LastSample,frame,DateTime.UtcNow),targetPid);
+                    _nextContent=DateTime.UtcNow.AddMilliseconds(Math.Clamp(profile?.OverlayRefreshMs??_store.Settings.OverlayRefreshMs,300,1000));
                 }
                 DisplayStatus=RtssOverlay.Status;WriteDiagnostic(target,foreground,_rtssVisible,area);
             }catch(Exception ex){ErrorLog.Write("Overlay: "+ex);}

@@ -6,6 +6,10 @@ namespace Burmalk.Models
     public class Sample
     {
         public long TimestampUtc;
+        public long GpuTimestampUtc;
+        public string GpuName = "";
+        public string CpuTemperatureSource = "";
+        public string CpuFrequencySource = "";
 
         // CPU
         public double CpuPercent = double.NaN;      // 0..100
@@ -23,6 +27,7 @@ namespace Burmalk.Models
 
         // RAM
         public double RamUsedGb = double.NaN;
+        public double RamTotalGb = double.NaN;      // RAM available to Windows, GiB
         public double RamPercent = double.NaN;
 
         // Aggregate disks
